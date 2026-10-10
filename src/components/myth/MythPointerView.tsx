@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Sparkles, 
   HelpCircle, 
@@ -22,7 +22,7 @@ interface MythPointerViewProps {
 }
 
 export const MythPointerView: React.FC<MythPointerViewProps> = ({
-  initialCity = 'Dubai',
+  initialCity = 'Tokyo',
   onSelectCity
 }) => {
   const [selectedCity, setSelectedCity] = useState<string>(initialCity);
@@ -32,13 +32,58 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
   const [customMyths, setCustomMyths] = useState<Record<string, TravelMyth[]>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Active myths list from curated or AI generated cache
+  // Sync state whenever initialCity changes from parent (e.g. planner or route selection)
+  useEffect(() => {
+    if (initialCity && initialCity.trim()) {
+      const trimmed = initialCity.trim();
+      setSelectedCity(trimmed);
+      setActiveCategory('all');
+    }
+  }, [initialCity]);
+
+  // Match against curated keys case-insensitively
+  const resolvedCuratedKey = useMemo(() => {
+    const target = selectedCity.trim().toLowerCase();
+    return Object.keys(CURATED_MYTHS).find(k => 
+      k.toLowerCase() === target || 
+      target.includes(k.toLowerCase()) || 
+      k.toLowerCase().includes(target)
+    ) || null;
+  }, [selectedCity]);
+
+  // Auto-fetch with Gemini AI if a non-curated city is selected and not in custom cache
+  useEffect(() => {
+    if (!resolvedCuratedKey && !customMyths[selectedCity] && selectedCity && selectedCity !== 'Worldwide') {
+      let isMounted = true;
+      setIsGeneratingAI(true);
+      generateAIMyths(selectedCity)
+        .then((generated) => {
+          if (isMounted && generated && generated.length > 0) {
+            setCustomMyths(prev => ({ ...prev, [selectedCity]: generated }));
+          }
+        })
+        .catch(err => {
+          console.warn('Auto AI myth generation error:', err);
+        })
+        .finally(() => {
+          if (isMounted) setIsGeneratingAI(false);
+        });
+
+      return () => { isMounted = false; };
+    }
+  }, [selectedCity, resolvedCuratedKey, customMyths]);
+
+  // Active myths list
   const activeMyths: TravelMyth[] = useMemo(() => {
     if (customMyths[selectedCity]) {
       return customMyths[selectedCity];
     }
-    return CURATED_MYTHS[selectedCity] || CURATED_MYTHS['Dubai'];
-  }, [selectedCity, customMyths]);
+    if (resolvedCuratedKey && CURATED_MYTHS[resolvedCuratedKey]) {
+      return CURATED_MYTHS[resolvedCuratedKey];
+    }
+    // Default to Tokyo if none selected
+    return CURATED_MYTHS['Tokyo'] || [];
+  }, [selectedCity, resolvedCuratedKey, customMyths]);
 
   const filteredMyths = useMemo(() => {
     if (activeCategory === 'all') return activeMyths;
@@ -56,8 +101,10 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
     const target = customInput.trim();
     if (!target) return;
 
-    // If already in curated list, just switch to it
-    const match = POPULAR_DESTINATIONS.find(d => d.name.toLowerCase() === target.toLowerCase());
+    // Check if matching curated destination
+    const match = POPULAR_DESTINATIONS.find(d => 
+      d.name.toLowerCase() === target.toLowerCase() || target.toLowerCase().includes(d.name.toLowerCase())
+    );
     if (match) {
       handleCityChange(match.name);
       setCustomInput('');
@@ -75,6 +122,7 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
         setSelectedCity(target);
         setActiveCategory('all');
         setCustomInput('');
+        if (onSelectCity) onSelectCity(target);
       }
     } catch (err) {
       console.error('Failed to generate myths:', err);
@@ -122,7 +170,7 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
           </label>
           <div className="flex flex-wrap items-center gap-2">
             {POPULAR_DESTINATIONS.map((dest) => {
-              const isSelected = selectedCity.toLowerCase() === dest.name.toLowerCase();
+              const isSelected = selectedCity.toLowerCase().includes(dest.name.toLowerCase());
               return (
                 <button
                   key={dest.name}
@@ -178,11 +226,11 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
         <div className="flex items-center space-x-2">
           <span className="text-xl">📍</span>
           <div>
-            <span className="text-xs font-mono font-bold text-gray-500 uppercase block leading-none">
+            <span className="text-[10px] font-mono font-bold text-gray-500 uppercase block leading-none">
               CURRENTLY VIEWING MYTHS FOR
             </span>
             <span className="text-lg font-display font-black text-[#111827] leading-tight">
-              {selectedCity}
+              {resolvedCuratedKey || selectedCity}
             </span>
           </div>
         </div>
@@ -332,7 +380,7 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
       {filteredMyths.length === 0 && !isGeneratingAI && (
         <div className="text-center py-12 bg-white border-2 border-[#111827] rounded-2xl shadow-[4px_4px_0px_#111827] p-6">
           <p className="text-sm font-mono font-bold text-gray-500">
-            No myths found for this specific filter. Try selecting "ALL MYTHS" or enter another city above!
+            No myths found for this filter. Try selecting "ALL MYTHS" or enter another city above!
           </p>
         </div>
       )}

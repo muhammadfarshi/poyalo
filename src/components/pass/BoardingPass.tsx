@@ -38,15 +38,15 @@ interface PassData {
 
 const DEFAULT_PASS_DATA: PassData = {
   passengerName: 'ALEX CHEN',
-  originCode: 'DXB',
-  originName: 'DUBAI METROPOLIS',
-  destCode: 'CREEK',
-  destName: 'AL FAHIDI DISTRICT',
-  trailName: 'HERITAGE TRAIL',
+  originCode: 'HND',
+  originName: 'TOKYO HANEDA',
+  destCode: 'SHIBUYA',
+  destName: 'MEIJI & SHIBUYA',
+  trailName: 'NEON HERITAGE TRAIL',
   seat: '09F',
   passClass: 'EXPLORER CLASS',
   date: '16 OCT 2026',
-  bookingRef: 'POY-2026-DXB',
+  bookingRef: 'POY-2026-TYO',
   verificationStatus: 'PASSPORT 180-DAY VALID'
 };
 
@@ -149,8 +149,8 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
       `Class: ${passData.passClass} | Date: ${passData.date}\n` +
       `Booking Ref: ${passData.bookingRef}\n` +
       `Verification: ${passData.verificationStatus}\n` +
-      `Reality Score: ${itineraryScore}/100 | VG Score: ${gameScore} PTS\n` +
-      `https://dufaii.vercel.app`;
+      `Status: Confirmed • Zone 1 Priority\n` +
+      `https://poyaloo.vercel.app`;
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(summary);
@@ -362,18 +362,18 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
           </div>
         </div>
 
-        {/* Middle Stats Grid */}
+        {/* Middle Boarding & Cabin Details Grid */}
         <div className="p-4 bg-white grid grid-cols-2 gap-3 border-b-2 border-[#111827]">
           <div className="p-2.5 bg-[#FDFBF7] rounded-xl border border-gray-200">
-            <span className="text-[10px] font-mono text-gray-500 font-bold block">REALITY CHECK</span>
-            <span className="text-lg font-mono font-black text-emerald-600">{itineraryScore}/100</span>
-            <p className="text-[9px] font-mono text-gray-500">Auto-repaired plan</p>
+            <span className="text-[10px] font-mono text-gray-500 font-bold block">FLIGHT STATUS</span>
+            <span className="text-sm font-mono font-black text-emerald-600">CONFIRMED • ZONE 1</span>
+            <p className="text-[9px] font-mono text-gray-500">Boarding on schedule</p>
           </div>
 
           <div className="p-2.5 bg-[#FDFBF7] rounded-xl border border-gray-200">
-            <span className="text-[10px] font-mono text-gray-500 font-bold block">VG WORLD SCORE</span>
-            <span className="text-lg font-mono font-black text-[#FF5722]">{gameScore} PTS</span>
-            <p className="text-[9px] font-mono text-gray-500">🦪 {pearlsCollected} Pearls Found</p>
+            <span className="text-[10px] font-mono text-gray-500 font-bold block">CABIN & BAGGAGE</span>
+            <span className="text-sm font-mono font-black text-[#1B3FFF]">1 CARRY-ON + 1 PERSONAL</span>
+            <p className="text-[9px] font-mono text-gray-500">Max 7kg overhead bin</p>
           </div>
         </div>
 

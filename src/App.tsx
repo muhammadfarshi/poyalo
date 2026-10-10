@@ -14,7 +14,7 @@ export const App: React.FC = () => {
   const [gameScore, setGameScore] = useState<number>(0);
   const [pearlsCollected, setPearlsCollected] = useState<number>(0);
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
-  const [currentCity, setCurrentCity] = useState<string>('Dubai');
+  const [currentCity, setCurrentCity] = useState<string>('Tokyo');
 
   // PWA install prompt & first-time onboarding modal
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any | null>(null);
@@ -99,6 +99,7 @@ export const App: React.FC = () => {
         {activeTab === 'comic' && <ComicStoryBox />}
         {activeTab === 'myths' && (
           <MythPointerView 
+            key={currentCity}
             initialCity={currentCity}
             onSelectCity={setCurrentCity}
           />
