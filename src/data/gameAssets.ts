@@ -91,5 +91,70 @@ export const INITIAL_VG_WORLD_COLLECTIBLES: CollectibleItem[] = [
     color: '#E0F2FE',
     culturalFact: 'Natural pearls from the warm, shallow waters of the Arabian Gulf were renowned in Parisian and Roman jewelry houses for their distinct pink-silver iridescence.',
     collected: false
+  },
+  {
+    id: 'c-bridge-pearl',
+    type: 'pearl',
+    name: 'Grand Causeway Arch Pearl',
+    points: 150,
+    x: 24.0,
+    y: 3.2,
+    z: 2.0,
+    emoji: '🌉',
+    color: '#38BDF8',
+    culturalFact: 'The wooden bridges and abras across Khor Dubai united the sister settlements of Deira and Bur Dubai into a unified global trading harbor.',
+    collected: false
+  },
+  {
+    id: 'c-burj-gem',
+    type: 'coin',
+    name: 'Spire Diamond Token',
+    points: 200,
+    x: 30.0,
+    y: 0.6,
+    z: -50.0,
+    emoji: '💎',
+    color: '#E2E8F0',
+    culturalFact: 'Standing at 828 meters, Burj Khalifa features an aerodynamic Y-shape inspired by the desert Hymenocallis spider lily flower.',
+    collected: false
+  },
+  {
+    id: 'c-rooftop-pearl',
+    type: 'pearl',
+    name: 'Wind-Tower Sky Pearl',
+    points: 200,
+    x: -16.0,
+    y: 6.2,
+    z: -18.0,
+    emoji: '💨',
+    color: '#FDE047',
+    culturalFact: 'Traditional Barjeel wind-towers captured desert breezes high above ground and channeled cool air down into the living quarters without electricity.',
+    collected: false
+  },
+  {
+    id: 'c-island-pearl',
+    type: 'pearl',
+    name: 'Jumeirah Island Pearl',
+    points: 150,
+    x: 40.0,
+    y: 0.6,
+    z: 20.0,
+    emoji: '🏝️',
+    color: '#0D9488',
+    culturalFact: 'Burj Al Arab was built on a dedicated man-made island 280 meters offshore, pioneering coastal engineering and breakwater honeycomb rock armor.',
+    collected: false
+  },
+  {
+    id: 'c-future-orb',
+    type: 'dallah',
+    name: 'Museum Ring Chrono-Orb',
+    points: 175,
+    x: -35.0,
+    y: 0.6,
+    z: 15.0,
+    emoji: '🔮',
+    color: '#A855F7',
+    culturalFact: 'The Museum of the Future features Arabic calligraphy poetry by Sheikh Mohammed bin Rashid Al Maktoum carved directly into its stainless steel facade.',
+    collected: false
   }
 ];

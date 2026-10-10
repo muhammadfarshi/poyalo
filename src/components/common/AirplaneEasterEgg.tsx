@@ -87,36 +87,72 @@ export const AirplaneEasterEgg: React.FC = () => {
   };
 
   useEffect(() => {
-    // 1. Phone accelerometer shake detection
+    // 1. Phone accelerometer shake detection (robust multi-reversal algorithm)
+    let shakeCount = 0;
+    let firstShakeTime = 0;
+    let lastShakeTime = 0;
     let lastX = 0;
     let lastY = 0;
     let lastZ = 0;
-    let lastTime = 0;
+    let lastSign = 0;
+    const SHAKE_COOLDOWN = 4000;
+    let lastTriggerTime = 0;
 
     const handleMotion = (event: DeviceMotionEvent) => {
-      const current = event.accelerationIncludingGravity || event.acceleration;
-      if (!current || current.x === null || current.y === null || current.z === null) return;
+      const now = Date.now();
+      if (now - lastTriggerTime < SHAKE_COOLDOWN || isTriggeringRef.current) return;
 
-      const currentTime = Date.now();
-      const diffTime = currentTime - lastTime;
+      // Prefer linear acceleration (gravity-filtered)
+      const acc = event.acceleration;
+      if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
+        const netAcc = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
+        // Vigorous intentional shake threshold (> 21 m/s²)
+        if (netAcc > 21) {
+          const currentSign = Math.sign(acc.x || acc.y || 1);
+          if (currentSign !== lastSign && now - lastShakeTime > 80) {
+            lastSign = currentSign;
+            lastShakeTime = now;
+            if (shakeCount === 0) firstShakeTime = now;
+            shakeCount++;
 
-      if (diffTime > 120) {
-        lastTime = currentTime;
-        const x = current.x;
-        const y = current.y;
-        const z = current.z;
-
-        const delta = Math.abs(x + y + z - lastX - lastY - lastZ);
-        const shakeScore = (delta / diffTime) * 10000;
-
-        // Shake threshold (typically > 800 for intentional shake)
-        if (shakeScore > 850) {
-          triggerFlyby();
+            // Require 3 rapid reversals within 750ms
+            if (shakeCount >= 3 && (now - firstShakeTime) <= 750) {
+              lastTriggerTime = now;
+              shakeCount = 0;
+              triggerFlyby();
+              return;
+            }
+          }
         }
+      } else {
+        // Fallback for devices without separate acceleration
+        const grav = event.accelerationIncludingGravity;
+        if (!grav || grav.x === null || grav.y === null || grav.z === null) return;
+        const deltaX = Math.abs(grav.x - lastX);
+        const deltaY = Math.abs(grav.y - lastY);
+        const deltaZ = Math.abs(grav.z - lastZ);
+        const totalDelta = deltaX + deltaY + deltaZ;
 
-        lastX = x;
-        lastY = y;
-        lastZ = z;
+        // High jerk threshold (> 26)
+        if (totalDelta > 26 && (now - lastShakeTime > 90)) {
+          lastShakeTime = now;
+          if (shakeCount === 0) firstShakeTime = now;
+          shakeCount++;
+          if (shakeCount >= 3 && (now - firstShakeTime) <= 750) {
+            lastTriggerTime = now;
+            shakeCount = 0;
+            triggerFlyby();
+            return;
+          }
+        }
+        lastX = grav.x;
+        lastY = grav.y;
+        lastZ = grav.z;
+      }
+
+      // Reset if shake sequence took too long
+      if (shakeCount > 0 && (now - firstShakeTime) > 750) {
+        shakeCount = 0;
       }
     };
 
