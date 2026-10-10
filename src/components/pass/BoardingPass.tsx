@@ -24,7 +24,7 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
           Your POYALO Boarding Stub
         </h1>
         <p className="text-xs font-mono text-gray-600">
-          Your Dubai Explorer Achievement Card
+          Your Travel Explorer Achievement Card
         </p>
       </div>
 
@@ -35,7 +35,7 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
         <div className="p-5 bg-[#1B3FFF] text-white space-y-4">
           <div className="flex items-center justify-between">
             <span className="font-mono font-black text-xs tracking-widest uppercase bg-white/20 px-2 py-0.5 rounded">
-              POYALO • DUBAI EXPLORER PASS
+              POYALO • EXPLORER PASS
             </span>
             <span className="font-mono font-bold text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded border border-[#111827]">
               SEAT 09F
@@ -45,8 +45,8 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
           {/* Route Display */}
           <div className="flex items-center justify-between pt-1">
             <div>
-              <span className="text-3xl font-display font-black tracking-tight">DUBAI</span>
-              <p className="text-[10px] font-mono text-blue-200">UNITED ARAB EMIRATES</p>
+              <span className="text-3xl font-display font-black tracking-tight">DXB</span>
+              <p className="text-[10px] font-mono text-blue-200">SAMPLE CITY</p>
             </div>
 
             <div className="flex flex-col items-center">

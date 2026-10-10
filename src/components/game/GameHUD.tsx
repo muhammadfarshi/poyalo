@@ -40,7 +40,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         <div className="bg-[#111827] text-white px-2.5 py-1 rounded-xl border border-white/20 shadow-[2px_2px_0px_#111827] flex items-center space-x-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
           <span className="font-display font-black text-xs tracking-wide">VG WORLD</span>
-          <span className="text-[10px] font-mono text-amber-300">DUBAI CREEK</span>
+          <span className="text-[10px] font-mono text-amber-300">HERITAGE DISTRICT</span>
         </div>
 
         {/* Score Pill */}

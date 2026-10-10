@@ -10,7 +10,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   isOffline = false,
   onTeleportDemo,
-  activeCity = 'Dubai, UAE'
+  activeCity = 'Worldwide'
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#FDFBF7] border-b-[2.5px] border-[#111827] px-4 py-2.5 shadow-sm">
@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <p className="text-[10px] font-mono text-gray-500 hidden sm:block">
-              Dubai Explorer • Comic Lore & 3D Reality
+              Story-First Travel Companion
             </p>
           </div>
         </div>

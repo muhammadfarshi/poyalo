@@ -139,7 +139,7 @@ export function auditItinerary(
           stopId: stop.id,
           stopName: stop.name,
           title: `Prime Sunset Viewpoint Scheduled at Noon`,
-          message: `${stop.name} is scheduled at ${stop.startTime}, but Dubai Golden Hour is at ${goldenHourStr}.`,
+          message: `${stop.name} is scheduled at ${stop.startTime}, but Golden Hour is at ${goldenHourStr}.`,
           roastComment: `Enjoying a panoramic scenic viewpoint under blinding 42°C midday sun? Your photos will be 100% glare and squinting.`,
           fixSuggestion: `Move this stop to ${goldenHourStr} for peak golden-hour reflections over the water.`
         });

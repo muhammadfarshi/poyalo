@@ -65,7 +65,7 @@ export const StopCard: React.FC<StopCardProps> = ({
       {stop.idealForSunset && (
         <div className="mt-1.5 inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-amber-100 border border-amber-400 text-[11px] font-mono font-bold text-amber-900">
           <Sun className="w-3 h-3 text-amber-600" />
-          <span>Scenic Sunset Point (Dubai Golden Hour: {goldenHourTime || '18:15'})</span>
+          <span>Scenic Sunset Point (Golden Hour: {goldenHourTime || '18:15'})</span>
         </div>
       )}
 

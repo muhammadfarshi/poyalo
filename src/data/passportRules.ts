@@ -97,7 +97,7 @@ export function evaluatePassportRules(input: PassportCheckInput): PassportCheckR
       daysRemaining,
       sixMonthsRulePassed: false,
       visaStatus: countryRule.status,
-      message: `CRITICAL RED ALERT: Passport has only ${daysRemaining} days validity remaining. UAE Immigration mandates at least 180 days (6 months) beyond entry date. Airlines will deny check-in!`,
+      message: `CRITICAL RED ALERT: Passport has only ${daysRemaining} days validity remaining. Immigration authorities mandate at least 180 days (6 months) beyond entry date. Airlines will deny check-in!`,
       badgeColor: 'bg-red-500 text-white'
     };
   }

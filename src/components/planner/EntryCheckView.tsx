@@ -42,10 +42,10 @@ export const EntryCheckView: React.FC = () => {
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-display font-black text-[#111827] mt-1 tracking-tight">
-          Passport Expiry & UAE Visa Matrix
+          Passport Expiry & Visa Matrix
         </h1>
         <p className="text-xs sm:text-sm font-mono text-gray-700 mt-1">
-          Verify your eligibility under the 180-day international rule before your trip to Dubai.
+          Verify your eligibility under the 180-day international rule before your trip.
         </p>
       </div>
 
@@ -170,8 +170,8 @@ export const EntryCheckView: React.FC = () => {
         <div className="space-y-2 pt-1">
           {[
             { key: 'onwardTicket' as const, label: 'Confirmed Onward / Return Airline Ticket' },
-            { key: 'hotelBooking' as const, label: 'Confirmed Accommodation / Hotel Booking Voucher in Dubai' },
-            { key: 'travelInsurance' as const, label: 'Travel Health Insurance policy with UAE medical coverage' },
+            { key: 'hotelBooking' as const, label: 'Confirmed Accommodation / Hotel Booking Voucher' },
+            { key: 'travelInsurance' as const, label: 'Travel Health Insurance policy with destination medical coverage' },
             { key: 'fundsProof' as const, label: 'Proof of Funds (Credit card or minimum 3,000 AED cash/balance)' }
           ].map((item) => (
             <label

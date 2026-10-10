@@ -531,7 +531,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      if (clientX < 140 && clientY > height - 160) return;
+      if (clientX < 180 && clientY > height - 180) return;
 
       isDragging = true;
       prevMouseX = clientX;
@@ -792,7 +792,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
 
       {/* Mobile Smartphone Floating Virtual Joystick (Left Thumb) */}
       <div className="absolute bottom-6 left-4 z-30 md:hidden pointer-events-auto">
-        <VirtualJoystick onMove={handleJoystickMove} maxRadius={44} />
+        <VirtualJoystick onMove={handleJoystickMove} maxRadius={56} />
       </div>
 
     </div>

@@ -121,7 +121,7 @@ export const OPTIMAL_PRESET_STOPS: ItineraryStop[] = [
     lng: 55.3055,
     isOutdoor: true,
     idealForSunset: true,
-    notes: '✨ Snapped to Dubai Golden Hour (18:15)'
+    notes: '✨ Snapped to Golden Hour (18:15)'
   }
 ];
 
@@ -386,10 +386,10 @@ export const ItineraryPlanner: React.FC = () => {
         <div className="flex items-center justify-between px-1">
           <h2 className="font-display font-black text-lg text-[#111827] flex items-center space-x-2">
             <span>📅</span>
-            <span>DAY 1: DUBAI CULTURAL LORE ROUTE</span>
+            <span>DAY 1: CULTURAL LORE ROUTE</span>
           </h2>
           <span className="text-xs font-mono font-bold text-gray-500">
-            {stops.length} STOPS • DUBAI CREEK
+            {stops.length} STOPS • HERITAGE TRAIL
           </span>
         </div>
 
@@ -409,7 +409,7 @@ export const ItineraryPlanner: React.FC = () => {
                   <div className="px-3 py-1 bg-white border border-[#111827] rounded-full text-[10px] font-mono font-bold text-gray-700 shadow-sm flex items-center space-x-1.5">
                     <span>🚗 TRANSIT</span>
                     <ArrowRight className="w-3 h-3 text-[#FF5722]" />
-                    <span>~20 MINS (ACROSS DUBAI CREEK)</span>
+                    <span>~20 MINS (ESTIMATED TRANSIT)</span>
                   </div>
                 </div>
               )}
