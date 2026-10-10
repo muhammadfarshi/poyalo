@@ -7,6 +7,7 @@ import { VGWorldGame } from './components/game/VGWorldGame';
 import { EntryCheckView } from './components/planner/EntryCheckView';
 import { BoardingPass } from './components/pass/BoardingPass';
 import { MythPointerView } from './components/myth/MythPointerView';
+import { WelcomeOnboardingModal } from './components/onboarding/WelcomeOnboardingModal';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('planner');
@@ -15,16 +16,34 @@ export const App: React.FC = () => {
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
   const [currentCity, setCurrentCity] = useState<string>('Dubai');
 
+  // PWA install prompt & first-time onboarding modal
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any | null>(null);
+  const [showWelcome, setShowWelcome] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('poyalo_welcome_dismissed') !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
 
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent mini-infobar on mobile and stash the event
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
 
@@ -51,6 +70,13 @@ export const App: React.FC = () => {
     setActiveTab('myths');
   };
 
+  const handleCloseWelcome = () => {
+    setShowWelcome(false);
+    try {
+      localStorage.setItem('poyalo_welcome_dismissed', 'true');
+    } catch {}
+  };
+
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#111827] flex flex-col font-display">
       
@@ -58,6 +84,8 @@ export const App: React.FC = () => {
       <Header
         isOffline={isOffline}
         onTeleportDemo={handleTeleportDemo}
+        onOpenInstallGuide={() => setShowWelcome(true)}
+        activeCity={currentCity}
       />
 
       {/* Main Viewport Container */}
@@ -91,6 +119,13 @@ export const App: React.FC = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         gameScore={gameScore}
+      />
+
+      {/* Welcome & PWA Install Onboarding Modal */}
+      <WelcomeOnboardingModal
+        isOpen={showWelcome}
+        onClose={handleCloseWelcome}
+        deferredPrompt={deferredInstallPrompt}
       />
 
     </div>

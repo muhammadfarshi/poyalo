@@ -1,0 +1,33 @@
+{
+  "name": "POYALO (പോയാലോ?) — Comic Lore, 3D & AI Travel Companion",
+  "short_name": "POYALO",
+  "description": "Offline-first worldwide travel app pairing comic-book lore, deterministic itinerary validation, and 3D exploration.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#FDFBF7",
+  "theme_color": "#1B3FFF",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["travel", "entertainment", "utilities"]
+}
