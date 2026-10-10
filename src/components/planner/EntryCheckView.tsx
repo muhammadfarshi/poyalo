@@ -4,6 +4,7 @@ import { evaluatePassportRules, COUNTRY_VISA_MATRIX } from '../../data/passportR
 
 export const EntryCheckView: React.FC = () => {
   const [nationality, setNationality] = useState<string>('IN');
+  const [destinationCountry, setDestinationCountry] = useState<string>('JP');
   const [passportExpiryDate, setPassportExpiryDate] = useState<string>('2027-05-15');
   const [tripStartDate, setTripStartDate] = useState<string>('2026-10-16');
 
@@ -20,9 +21,9 @@ export const EntryCheckView: React.FC = () => {
       nationality,
       passportExpiryDate,
       tripStartDate,
-      destinationCountry: 'United Arab Emirates'
+      destinationCountry
     });
-  }, [nationality, passportExpiryDate, tripStartDate]);
+  }, [nationality, destinationCountry, passportExpiryDate, tripStartDate]);
 
   const toggleChecklist = (key: keyof typeof checklist) => {
     setChecklist(prev => ({ ...prev, [key]: !prev[key] }));
@@ -61,7 +62,7 @@ export const EntryCheckView: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           
           {/* Nationality Selector */}
           <div>
@@ -78,6 +79,27 @@ export const EntryCheckView: React.FC = () => {
                   {c.countryName} ({c.code})
                 </option>
               ))}
+            </select>
+          </div>
+
+          {/* Destination Country Selector */}
+          <div>
+            <label className="block text-[11px] font-mono font-black text-gray-700 uppercase mb-1">
+              Destination Country:
+            </label>
+            <select
+              value={destinationCountry}
+              onChange={(e) => setDestinationCountry(e.target.value)}
+              className="w-full px-3 py-2 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs font-bold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1B3FFF]"
+            >
+              <option value="JP">Japan (JP)</option>
+              <option value="FR">France / Schengen (FR)</option>
+              <option value="US">United States (US)</option>
+              <option value="GB">United Kingdom (GB)</option>
+              <option value="AE">United Arab Emirates (AE)</option>
+              <option value="TH">Thailand (TH)</option>
+              <option value="SG">Singapore (SG)</option>
+              <option value="IN">India (IN)</option>
             </select>
           </div>
 

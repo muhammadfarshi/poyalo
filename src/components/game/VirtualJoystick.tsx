@@ -14,6 +14,7 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({
   const [touchActive, setTouchActive] = useState(false);
   const touchOriginRef = useRef({ x: 0, y: 0 });
   const activePointerIdRef = useRef<number | null>(null);
+  const isInteractingRef = useRef<boolean>(false);
 
   const updateKnob = useCallback((clientX: number, clientY: number) => {
     const dx = clientX - touchOriginRef.current.x;
@@ -30,8 +31,8 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({
 
     setKnobPos({ x: clampedX, y: clampedY });
 
-    // 8px dead zone to prevent accidental jitter
-    if (dist < 8) {
+    // 6px dead zone to prevent accidental jitter
+    if (dist < 6) {
       onMove({ x: 0, y: 0 });
     } else {
       // Normalized vector: x between -1 and 1, y inverted so up is positive
@@ -47,6 +48,7 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({
     if (!rect) return;
 
     activePointerIdRef.current = e.pointerId;
+    isInteractingRef.current = true;
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
@@ -63,7 +65,7 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!touchActive || e.pointerId !== activePointerIdRef.current) return;
+    if (!isInteractingRef.current || e.pointerId !== activePointerIdRef.current) return;
     updateKnob(e.clientX, e.clientY);
   };
 
@@ -75,6 +77,7 @@ export const VirtualJoystick: React.FC<VirtualJoystickProps> = ({
       // Fallback
     }
     activePointerIdRef.current = null;
+    isInteractingRef.current = false;
     setTouchActive(false);
     setKnobPos({ x: 0, y: 0 });
     onMove({ x: 0, y: 0 });

@@ -39,8 +39,10 @@ export function auditItinerary(
   const tripDate = new Date(tripDateStr);
   const dayOfWeek = tripDate.getDay(); // 0=Sun, 5=Fri, 6=Sat
 
-  // Golden hour calculation via SunCalc for Dubai (approx 25.26, 55.30)
-  const sunTimes = SunCalc.getTimes(tripDate, 25.2635, 55.2972);
+  // Dynamic Golden hour calculation via SunCalc for destination's actual GPS coordinates
+  const refLat = stops.find(s => s.lat && !isNaN(s.lat))?.lat ?? 25.2635;
+  const refLng = stops.find(s => s.lng && !isNaN(s.lng))?.lng ?? 55.2972;
+  const sunTimes = SunCalc.getTimes(tripDate, refLat, refLng);
   const goldenHourMinutes = sunTimes.goldenHour ? sunTimes.goldenHour.getHours() * 60 + sunTimes.goldenHour.getMinutes() : 18 * 60 + 15;
   const goldenHourStr = minutesToTime(goldenHourMinutes);
 
@@ -52,27 +54,28 @@ export function auditItinerary(
     const stopEndMin = timeToMinutes(stop.endTime);
 
     // 1. CHECK OPERATING HOURS
-    if (poi) {
-      const openMin = timeToMinutes(poi.openTime);
-      const closeMin = timeToMinutes(poi.closeTime);
+    const openTime = poi?.openTime || (stop.category === 'museum' ? '09:00' : '08:30');
+    const closeTime = poi?.closeTime || (stop.category === 'museum' ? '17:30' : stop.category === 'viewpoint' ? '23:00' : '22:00');
+    const openMin = timeToMinutes(openTime);
+    const closeMin = timeToMinutes(closeTime);
 
-      if (stopStartMin < openMin || stopStartMin > closeMin) {
-        deduction += 20;
-        flags.push({
-          id: `flag-hours-${stop.id}`,
-          type: 'CLOSED_VENUE',
-          severity: 'error',
-          stopId: stop.id,
-          stopName: stop.name,
-          title: `Arriving Outside Opening Hours`,
-          message: `${stop.name} is scheduled at ${stop.startTime}, but official hours are ${poi.openTime} – ${poi.closeTime}.`,
-          roastComment: `Did you plan to break in through the window? You'll be standing outside staring at a padlock.`,
-          fixSuggestion: `Adjust timing to arrive between ${poi.openTime} and ${poi.closeTime}.`
-        });
-      }
+    if (stopStartMin < openMin || stopStartMin > closeMin) {
+      deduction += 20;
+      flags.push({
+        id: `flag-hours-${stop.id}`,
+        type: 'CLOSED_VENUE',
+        severity: 'error',
+        stopId: stop.id,
+        stopName: stop.name,
+        title: `Arriving Outside Opening Hours`,
+        message: `${stop.name} is scheduled at ${stop.startTime}, but expected hours are ${openTime} – ${closeTime}.`,
+        roastComment: `Did you plan to break in through the window? You'll be standing outside staring at a padlock.`,
+        fixSuggestion: `Adjust timing to arrive between ${openTime} and ${closeTime}.`
+      });
+    }
 
-      // 2. CHECK WEEKLY CLOSED DAYS
-      if (poi.closedDays.includes(dayOfWeek)) {
+    // 2. CHECK WEEKLY CLOSED DAYS
+    if (poi && poi.closedDays.includes(dayOfWeek)) {
         deduction += 25;
         flags.push({
           id: `flag-closed-day-${stop.id}`,
@@ -86,7 +89,6 @@ export function auditItinerary(
           fixSuggestion: `Swap with Al Seef Promenade or schedule after 16:30.`
         });
       }
-    }
 
     // 3. TRANSIT PHYSICS AUDIT (consecutive stops)
     if (idx < stops.length - 1) {

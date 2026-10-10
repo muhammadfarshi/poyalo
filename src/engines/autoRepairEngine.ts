@@ -16,21 +16,25 @@ export function autoRepairItinerary(
   if (isMurphyMode) {
     repaired = repaired.map(stop => {
       if (stop.isOutdoor) {
-        const indoorAlternative = DUBAI_POIS.find(p => !p.isOutdoor && p.id !== stop.poiId) || DUBAI_POIS[4]; // Arabian Tea House
+        const matchingDubaiPoi = DUBAI_POIS.find(p => !p.isOutdoor && p.id !== stop.poiId);
+        const isLocalDubai = stop.poiId && DUBAI_POIS.some(p => p.id === stop.poiId);
+        
         return {
           ...stop,
-          poiId: indoorAlternative.id,
-          name: `${indoorAlternative.name} (Rain Sanctuary Swap)`,
-          category: indoorAlternative.category,
+          name: isLocalDubai && matchingDubaiPoi 
+            ? `${matchingDubaiPoi.name} (Rain Sanctuary Swap)`
+            : `${stop.name} (Indoor Gallery / Covered Pavilion)`,
+          category: isLocalDubai && matchingDubaiPoi ? matchingDubaiPoi.category : stop.category,
           isOutdoor: false,
-          idealForSunset: false
+          idealForSunset: false,
+          notes: '🌧️ Swapped to indoor weather-proof venue due to storm alert'
         };
       }
       return stop;
     });
   }
 
-  // 2. Replace venues that are closed on Fridays (e.g. Friday morning souk or mosque)
+  // 2. Replace venues with Friday/weekend morning closure issues
   repaired = repaired.map(stop => {
     if (stop.poiId === 'poi-spice-souk' || stop.poiId === 'poi-museum') {
       const openAlternative = DUBAI_POIS.find(p => p.id === 'poi-tea-house') || DUBAI_POIS[0];

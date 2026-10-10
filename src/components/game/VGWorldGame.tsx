@@ -605,28 +605,39 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       const delta = Math.min(clock.getDelta(), 0.1);
       const time = clock.getElapsedTime();
 
-      // Collect movement input
-      let moveX = moveVectorRef.current.x;
-      let moveZ = -moveVectorRef.current.y; 
+      // Collect movement input (analog joystick + keyboard)
+      const joyX = moveVectorRef.current.x;
+      const joyY = moveVectorRef.current.y; // Positive is UP/forward
 
-      if (keysPressed.current['w'] || keysPressed.current['arrowup']) moveZ -= 1;
-      if (keysPressed.current['s'] || keysPressed.current['arrowdown']) moveZ += 1;
-      if (keysPressed.current['a'] || keysPressed.current['arrowleft']) moveX -= 1;
-      if (keysPressed.current['d'] || keysPressed.current['arrowright']) moveX += 1;
+      let keyX = 0;
+      let keyY = 0;
+      if (keysPressed.current['w'] || keysPressed.current['arrowup']) keyY += 1;
+      if (keysPressed.current['s'] || keysPressed.current['arrowdown']) keyY -= 1;
+      if (keysPressed.current['a'] || keysPressed.current['arrowleft']) keyX -= 1;
+      if (keysPressed.current['d'] || keysPressed.current['arrowright']) keyX += 1;
+
+      let inputX = joyX + keyX;
+      let inputY = joyY + keyY;
+      const inputLen = Math.hypot(inputX, inputY);
 
       const targetVelocity = new THREE.Vector3(0, 0, 0);
-      if (moveX !== 0 || moveZ !== 0) {
-        const length = Math.hypot(moveX, moveZ);
-        const normX = moveX / Math.max(1, length);
-        const normZ = moveZ / Math.max(1, length);
+      if (inputLen > 0.05) {
+        const normX = inputX / Math.max(1, inputLen);
+        const normY = inputY / Math.max(1, inputLen);
 
-        const sin = Math.sin(cameraAngle);
-        const cos = Math.cos(cameraAngle);
+        // Forward vector relative to camera (pointing away from camera into the scene)
+        const fwdX = -Math.sin(cameraAngle);
+        const fwdZ = -Math.cos(cameraAngle);
 
-        const worldX = normX * cos - normZ * sin;
-        const worldZ = normX * sin + normZ * cos;
+        // Right vector relative to camera (perpendicular to forward)
+        const rightX = Math.cos(cameraAngle);
+        const rightZ = -Math.sin(cameraAngle);
 
-        targetVelocity.set(worldX, 0, worldZ).multiplyScalar(maxSpeed);
+        const worldX = normX * rightX + normY * fwdX;
+        const worldZ = normX * rightZ + normY * fwdZ;
+
+        const effectiveSpeed = maxSpeed * Math.min(1, inputLen);
+        targetVelocity.set(worldX, 0, worldZ).multiplyScalar(effectiveSpeed);
       }
 
       // Smooth acceleration/deceleration
@@ -790,8 +801,8 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         </div>
       )}
 
-      {/* Mobile Smartphone Floating Virtual Joystick (Left Thumb) */}
-      <div className="absolute bottom-6 left-4 z-30 md:hidden pointer-events-auto">
+      {/* Floating Virtual Joystick (Left Thumb) */}
+      <div className="absolute bottom-6 left-4 z-30 pointer-events-auto">
         <VirtualJoystick onMove={handleJoystickMove} maxRadius={56} />
       </div>
 

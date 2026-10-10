@@ -17,6 +17,7 @@ import { ItineraryStop } from '../../types/itinerary';
 import { auditItinerary } from '../../engines/realityCheckEngine';
 import { autoRepairItinerary } from '../../engines/autoRepairEngine';
 import { getRandomMurphyScenario } from '../../engines/murphyEngine';
+import { generateAIPlan } from '../../services/aiService';
 import { StopCard } from './StopCard';
 
 // 1. Chaotic Demo Itinerary (triggers missed hours, Friday closure, impossible transit, missed golden hour)
@@ -132,6 +133,8 @@ export const ItineraryPlanner: React.FC = () => {
   const [planToast, setPlanToast] = useState<string | null>(null);
   const [isMurphyActive, setIsMurphyActive] = useState<boolean>(false);
   const [commentaryMode, setCommentaryMode] = useState<'roast' | 'professor'>('roast');
+  const [routeTitle, setRouteTitle] = useState<string>('DAY 1: CULTURAL LORE ROUTE');
+  const [routeSubtitle, setRouteSubtitle] = useState<string>('HERITAGE TRAIL');
 
   const murphyScenario = useMemo(() => getRandomMurphyScenario(), []);
 
@@ -165,34 +168,49 @@ export const ItineraryPlanner: React.FC = () => {
     setIsMurphyActive(!isMurphyActive);
   };
 
-  const handleGenerateFromPrompt = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userPrompt.trim()) return;
+  const handleGenerateFromPrompt = async (e: React.FormEvent, customPrompt?: string) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const promptToUse = customPrompt || userPrompt;
+    if (!promptToUse.trim()) return;
+
     setIsGenerating(true);
+    setPlanToast('🤖 Gemini AI analyzing destination & drafting itinerary...');
 
-    const lower = userPrompt.toLowerCase();
-    const heritageKeywords = ['heritage', 'culture', 'history', 'old', 'traditional', 'souk', 'creek', 'abra'];
-    const chaoticKeywords = ['adventure', 'chaos', 'random', 'wild', 'fast', 'rush'];
-
-    const hasChaotic = chaoticKeywords.some((keyword) => lower.includes(keyword));
-    const hasHeritage = heritageKeywords.some((keyword) => lower.includes(keyword));
-
-    setTimeout(() => {
-      setIsGenerating(false);
-      if (hasChaotic && !hasHeritage) {
+    try {
+      const plan = await generateAIPlan(promptToUse);
+      if (plan && plan.stops.length > 0) {
+        setStops(plan.stops);
+        setRouteTitle(`DAY 1: ${plan.theme.toUpperCase()}`);
+        setRouteSubtitle(`${plan.city.toUpperCase()}, ${plan.country.toUpperCase()}`);
+        setPlanToast(`✨ Generated ${plan.stops.length} stops for ${plan.city}!`);
+        setIsMurphyActive(false);
+        setUserPrompt('');
+        try {
+          confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
+        } catch {}
+      } else {
+        throw new Error('No stops returned');
+      }
+    } catch (err: any) {
+      console.warn('AI generation error, using smart fallback:', err);
+      const lower = promptToUse.toLowerCase();
+      if (lower.includes('chaos') || lower.includes('speed') || lower.includes('rush')) {
         setStops(CHAOTIC_PRESET_STOPS);
-        setPlanToast('🚨 Matched: Chaotic Speed Run');
+        setRouteTitle('DAY 1: SPEED RUN CHALLENGE');
+        setRouteSubtitle('URBAN ADVENTURE');
+        setPlanToast('🚨 Loaded: Chaotic Speed Run');
       } else {
         setStops(OPTIMAL_PRESET_STOPS);
-        setPlanToast('✨ Matched: Heritage Cultural Tour');
+        setRouteTitle('DAY 1: CULTURAL LORE ROUTE');
+        setRouteSubtitle('HERITAGE TRAIL');
+        setPlanToast('✨ Loaded: Heritage Cultural Tour');
       }
       setIsMurphyActive(false);
       setUserPrompt('');
-
-      setTimeout(() => {
-        setPlanToast(null);
-      }, 3000);
-    }, 400);
+    } finally {
+      setIsGenerating(false);
+      setTimeout(() => setPlanToast(null), 4000);
+    }
   };
 
   const scoreBadgeBg = 
@@ -250,18 +268,39 @@ export const ItineraryPlanner: React.FC = () => {
             type="text"
             value={userPrompt}
             onChange={(e) => setUserPrompt(e.target.value)}
-            placeholder="Describe your ideal trip (e.g. 'heritage boat tour' or 'fast adventure')..."
+            placeholder="Ask AI for ANY trip worldwide (e.g. '1 day in Tokyo', 'Paris highlights', 'Rome historic sights')..."
             className="flex-1 px-3.5 py-2.5 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1B3FFF] shadow-inner"
           />
           <button
             type="submit"
             disabled={isGenerating}
-            className="px-4 py-2.5 bg-[#1B3FFF] text-white border-2 border-[#111827] rounded-xl font-mono font-black text-xs uppercase shadow-[2px_2px_0px_#111827] active:translate-x-0.5 active:translate-y-0.5 flex items-center space-x-1.5"
+            className="px-4 py-2.5 bg-[#1B3FFF] hover:bg-[#1532CC] text-white border-2 border-[#111827] rounded-xl font-mono font-black text-xs uppercase shadow-[2px_2px_0px_#111827] active:translate-x-0.5 active:translate-y-0.5 flex items-center space-x-1.5 disabled:opacity-50"
           >
-            {isGenerating ? <Sparkles className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            <span className="hidden sm:inline">SMART PLAN</span>
+            {isGenerating ? <Sparkles className="w-4 h-4 animate-spin text-amber-300" /> : <Send className="w-4 h-4" />}
+            <span className="hidden sm:inline">{isGenerating ? 'GENERATING...' : 'AI PLAN'}</span>
           </button>
         </form>
+
+        {/* Worldwide Inspiration Chips */}
+        <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] font-mono font-bold text-gray-500 uppercase mr-1">Inspiration:</span>
+          {[
+            { label: '🗼 Tokyo Temples', prompt: '1 day cultural temple walk in Tokyo with food markets' },
+            { label: '🥐 Paris Highlights', prompt: 'Walking tour of Paris historic viewpoints and cafes' },
+            { label: '🏛️ Ancient Rome', prompt: '1 day exploration of Ancient Rome monuments and viewpoints' },
+            { label: '🍜 Bangkok Street Food', prompt: 'Historic temples and famous street food markets in Bangkok' }
+          ].map((chip) => (
+            <button
+              key={chip.label}
+              type="button"
+              onClick={(e) => handleGenerateFromPrompt(e, chip.prompt)}
+              disabled={isGenerating}
+              className="px-2 py-0.5 bg-[#FDFBF7] hover:bg-[#FEF3C7] border border-[#111827] rounded-lg text-[10px] font-mono font-bold text-gray-800 shadow-[1px_1px_0px_#111827] active:translate-x-0.5 active:translate-y-0.5 transition-colors disabled:opacity-50"
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
 
         {planToast && (
           <div className="mt-2 p-2 bg-emerald-100 border-2 border-[#111827] rounded-xl text-emerald-900 text-xs font-mono font-bold flex items-center space-x-2 shadow-[2px_2px_0px_#111827]">
@@ -386,10 +425,10 @@ export const ItineraryPlanner: React.FC = () => {
         <div className="flex items-center justify-between px-1">
           <h2 className="font-display font-black text-lg text-[#111827] flex items-center space-x-2">
             <span>📅</span>
-            <span>DAY 1: CULTURAL LORE ROUTE</span>
+            <span>{routeTitle}</span>
           </h2>
-          <span className="text-xs font-mono font-bold text-gray-500">
-            {stops.length} STOPS • HERITAGE TRAIL
+          <span className="text-xs font-mono font-bold text-gray-500 uppercase">
+            {stops.length} STOPS • {routeSubtitle}
           </span>
         </div>
 

@@ -102,12 +102,23 @@ export function evaluatePassportRules(input: PassportCheckInput): PassportCheckR
     };
   }
 
+  if (input.nationality === input.destinationCountry) {
+    return {
+      valid: true,
+      daysRemaining,
+      sixMonthsRulePassed: true,
+      visaStatus: 'Visa-Free',
+      message: `Domestic Entry: You are traveling within your home country/region. No international visa or passport buffer required.`,
+      badgeColor: 'bg-emerald-500 text-white'
+    };
+  }
+
   return {
     valid: true,
     daysRemaining,
     sixMonthsRulePassed: true,
     visaStatus: countryRule.status,
-    message: `Entry Pass Validated: ${daysRemaining} days passport buffer. ${countryRule.notes}`,
+    message: `Entry Pass Validated for ${input.destinationCountry}: ${daysRemaining} days passport buffer meets international border regulations. ${countryRule.notes}`,
     badgeColor: 'bg-emerald-500 text-white'
   };
 }
