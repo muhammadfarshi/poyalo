@@ -87,72 +87,81 @@ export const AirplaneEasterEgg: React.FC = () => {
   };
 
   useEffect(() => {
-    // 1. Phone accelerometer shake detection (robust multi-reversal algorithm)
-    let shakeCount = 0;
-    let firstShakeTime = 0;
-    let lastShakeTime = 0;
-    let lastX = 0;
-    let lastY = 0;
-    let lastZ = 0;
-    let lastSign = 0;
-    const SHAKE_COOLDOWN = 4000;
+    // 1. Phone accelerometer shake detection (High-pass gravity filter + 6 vigorous reversals)
+    let gravityX = 0;
+    let gravityY = 0;
+    let gravityZ = 0;
+    let shakeReversals = 0;
+    let lastReversalTime = 0;
+    let sequenceStartTime = 0;
+    let lastAxisSign = 0;
+    const REQUIRED_SHAKES = 6; // Requires 6 vigorous back-and-forth shakes
+    const SHAKE_COOLDOWN = 5000; // 5s cooldown between flights
     let lastTriggerTime = 0;
 
     const handleMotion = (event: DeviceMotionEvent) => {
       const now = Date.now();
       if (now - lastTriggerTime < SHAKE_COOLDOWN || isTriggeringRef.current) return;
 
-      // Prefer linear acceleration (gravity-filtered)
-      const acc = event.acceleration;
-      if (acc && acc.x !== null && acc.y !== null && acc.z !== null) {
-        const netAcc = Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z);
-        // Vigorous intentional shake threshold (> 21 m/s²)
-        if (netAcc > 21) {
-          const currentSign = Math.sign(acc.x || acc.y || 1);
-          if (currentSign !== lastSign && now - lastShakeTime > 80) {
-            lastSign = currentSign;
-            lastShakeTime = now;
-            if (shakeCount === 0) firstShakeTime = now;
-            shakeCount++;
+      let linearX = 0;
+      let linearY = 0;
+      let linearZ = 0;
 
-            // Require 3 rapid reversals within 750ms
-            if (shakeCount >= 3 && (now - firstShakeTime) <= 750) {
-              lastTriggerTime = now;
-              shakeCount = 0;
-              triggerFlyby();
-              return;
-            }
-          }
-        }
+      if (event.acceleration && event.acceleration.x !== null && event.acceleration.y !== null && event.acceleration.z !== null) {
+        linearX = event.acceleration.x;
+        linearY = event.acceleration.y;
+        linearZ = event.acceleration.z;
+      } else if (
+        event.accelerationIncludingGravity && 
+        event.accelerationIncludingGravity.x !== null &&
+        event.accelerationIncludingGravity.y !== null
+      ) {
+        // High-pass filter to isolate pure dynamic motion from static 9.8m/s² gravity
+        const alpha = 0.82;
+        const gx = event.accelerationIncludingGravity.x || 0;
+        const gy = event.accelerationIncludingGravity.y || 0;
+        const gz = event.accelerationIncludingGravity.z || 0;
+        gravityX = alpha * gravityX + (1 - alpha) * gx;
+        gravityY = alpha * gravityY + (1 - alpha) * gy;
+        gravityZ = alpha * gravityZ + (1 - alpha) * gz;
+        linearX = gx - gravityX;
+        linearY = gy - gravityY;
+        linearZ = gz - gravityZ;
       } else {
-        // Fallback for devices without separate acceleration
-        const grav = event.accelerationIncludingGravity;
-        if (!grav || grav.x === null || grav.y === null || grav.z === null) return;
-        const deltaX = Math.abs(grav.x - lastX);
-        const deltaY = Math.abs(grav.y - lastY);
-        const deltaZ = Math.abs(grav.z - lastZ);
-        const totalDelta = deltaX + deltaY + deltaZ;
+        return;
+      }
 
-        // High jerk threshold (> 26)
-        if (totalDelta > 26 && (now - lastShakeTime > 90)) {
-          lastShakeTime = now;
-          if (shakeCount === 0) firstShakeTime = now;
-          shakeCount++;
-          if (shakeCount >= 3 && (now - firstShakeTime) <= 750) {
+      // Net dynamic acceleration magnitude (without gravity)
+      const magnitude = Math.hypot(linearX, linearY, linearZ);
+
+      // High threshold: gentle movement is 1-5 m/s²; picking up is 6-10; deliberate shake is > 24
+      if (magnitude > 24) {
+        const dominantAcc = Math.abs(linearX) > Math.abs(linearY) ? linearX : linearY;
+        const currentSign = Math.sign(dominantAcc);
+
+        // Require distinct direction reversals with minimum 90ms spacing
+        if (currentSign !== 0 && currentSign !== lastAxisSign && (now - lastReversalTime > 90)) {
+          lastAxisSign = currentSign;
+          lastReversalTime = now;
+
+          if (shakeReversals === 0) {
+            sequenceStartTime = now;
+          }
+          shakeReversals++;
+
+          // Require 6 complete reversals within 1600ms
+          if (shakeReversals >= REQUIRED_SHAKES && (now - sequenceStartTime <= 1600)) {
             lastTriggerTime = now;
-            shakeCount = 0;
+            shakeReversals = 0;
             triggerFlyby();
             return;
           }
         }
-        lastX = grav.x;
-        lastY = grav.y;
-        lastZ = grav.z;
       }
 
-      // Reset if shake sequence took too long
-      if (shakeCount > 0 && (now - firstShakeTime) > 750) {
-        shakeCount = 0;
+      // Reset count if user stops shaking or sequence took longer than 1600ms
+      if (shakeReversals > 0 && (now - sequenceStartTime > 1600)) {
+        shakeReversals = 0;
       }
     };
 

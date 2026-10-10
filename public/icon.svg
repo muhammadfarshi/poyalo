@@ -1,7 +1,89 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="96" fill="#1B3FFF"/>
-  <rect x="24" y="24" width="464" height="464" rx="72" fill="#FFFFFF" stroke="#111827" stroke-width="24"/>
-  <path d="M120 380 L256 110 L392 380 L256 310 Z" fill="#FF5722" stroke="#111827" stroke-width="20" stroke-linejoin="round"/>
-  <circle cx="256" cy="270" r="32" fill="#FBBF24" stroke="#111827" stroke-width="12"/>
-  <text x="256" y="440" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="52" fill="#111827" text-anchor="middle" letter-spacing="4">POYALO</text>
+  <defs>
+    <!-- Comic Halftone Pattern -->
+    <pattern id="halftone" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="8" cy="8" r="2.5" fill="#111827" opacity="0.12" />
+    </pattern>
+    <!-- Soft Glow Filter -->
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="8" dy="8" stdDeviation="0" flood-color="#111827" />
+    </filter>
+  </defs>
+
+  <!-- Neo-Brutalist Hard Shadow Backing -->
+  <rect x="28" y="28" width="464" height="464" rx="88" fill="#111827" />
+
+  <!-- Main Card Body -->
+  <rect x="16" y="16" width="464" height="464" rx="84" fill="#FDFBF7" stroke="#111827" stroke-width="16" />
+
+  <!-- Electric Blue Top-Right Sky Wedge -->
+  <path d="M16 100 Q 16 16 100 16 L 400 16 Q 480 16 480 100 L 480 260 L 16 380 Z" fill="#1B3FFF" stroke="#111827" stroke-width="12" />
+
+  <!-- Halftone Ben-Day Dots Texture in Sky -->
+  <rect x="16" y="16" width="464" height="364" fill="url(#halftone)" />
+
+  <!-- Top Malayalam Travel Pill Badge ("പോയാലോ?") -->
+  <g transform="translate(48, 48)">
+    <rect x="0" y="0" width="168" height="42" rx="12" fill="#FBBF24" stroke="#111827" stroke-width="6" />
+    <text x="84" y="28" font-family="'Space Grotesk', system-ui, sans-serif" font-weight="900" font-size="20" fill="#111827" text-anchor="middle" letter-spacing="1">പോയാലോ? ✈</text>
+  </g>
+
+  <!-- Comic 4-Point Sparkle Decal -->
+  <path d="M 430 80 Q 430 105 405 105 Q 430 105 430 130 Q 430 105 455 105 Q 430 105 430 80 Z" fill="#FBBF24" stroke="#111827" stroke-width="4" />
+
+  <!-- Supersonic Smoke & Contrail Puffs -->
+  <g stroke="#111827" stroke-width="8">
+    <ellipse cx="140" cy="350" rx="36" ry="24" fill="#FFFFFF" />
+    <ellipse cx="100" cy="380" rx="42" ry="26" fill="#F3F4F6" />
+    <ellipse cx="65" cy="410" rx="30" ry="20" fill="#FFFFFF" />
+    <!-- Contrail Dash Lines -->
+    <path d="M 125 365 L 75 415" stroke="#FBBF24" stroke-width="10" stroke-linecap="round" stroke-dasharray="8 6" />
+  </g>
+
+  <!-- Jet Engine Afterburner Fire Blast -->
+  <path d="M 175 320 L 130 355 L 170 340 L 140 375 L 195 335 Z" fill="#EF4444" stroke="#111827" stroke-width="6" stroke-linejoin="round" />
+  <path d="M 178 322 L 148 348 L 172 338 L 154 362 L 190 332 Z" fill="#FBBF24" stroke="#111827" stroke-width="4" stroke-linejoin="round" />
+
+  <!-- HERO SUPERSONIC COMIC JET -->
+  <g stroke="#111827" stroke-width="12" stroke-linejoin="round">
+    <!-- Left Wing -->
+    <path d="M 235 220 L 105 285 L 165 315 L 245 255 Z" fill="#FF5722" />
+    <!-- Left Wingtip Trim -->
+    <path d="M 105 285 L 125 295 L 145 270 Z" fill="#FBBF24" stroke-width="6" />
+
+    <!-- Right Wing -->
+    <path d="M 290 170 L 330 75 L 375 125 L 305 195 Z" fill="#FF5722" />
+    <!-- Right Wingtip Trim -->
+    <path d="M 330 75 L 348 95 L 365 85 Z" fill="#FBBF24" stroke-width="6" />
+
+    <!-- Main Aerodynamic Fuselage (Delta Jet) -->
+    <path d="M 395 105 L 320 220 L 205 310 L 175 305 L 185 275 L 275 180 L 340 120 Z" fill="#1B3FFF" />
+
+    <!-- Fuselage Belly Shading (Comic Tint) -->
+    <path d="M 205 310 L 275 255 L 320 220 L 285 275 Z" fill="#1532CC" stroke-width="6" />
+
+    <!-- Pilot Cockpit Canopy -->
+    <path d="M 370 125 L 335 165 L 305 155 L 335 120 Z" fill="#38BDF8" />
+    <!-- Cockpit Glare Highlight -->
+    <path d="M 355 130 L 335 150" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" />
+
+    <!-- Vertical Stabilizer / Tail Fin -->
+    <path d="M 215 285 L 170 330 L 160 300 L 195 265 Z" fill="#FBBF24" />
+  </g>
+
+  <!-- Speed Action Sound Line / Streak -->
+  <path d="M 405 90 L 445 55" stroke="#111827" stroke-width="8" stroke-linecap="round" />
+  <path d="M 430 115 L 465 85" stroke="#111827" stroke-width="6" stroke-linecap="round" />
+  <path d="M 375 70 L 415 40" stroke="#111827" stroke-width="6" stroke-linecap="round" />
+
+  <!-- Bottom Brand Typography Plinth -->
+  <g transform="translate(248, 452)">
+    <!-- Shadow Text -->
+    <text x="5" y="5" font-family="'Space Grotesk', system-ui, sans-serif" font-weight="900" font-size="56" fill="#111827" text-anchor="middle" letter-spacing="4">POYALO</text>
+    <!-- Front Text in Deep Blue with Orange Glow -->
+    <text x="0" y="0" font-family="'Space Grotesk', system-ui, sans-serif" font-weight="900" font-size="56" fill="#1B3FFF" text-anchor="middle" letter-spacing="4" stroke="#111827" stroke-width="4">POYALO</text>
+  </g>
+
+  <!-- Comic Badge Subtitle ("STORY • 3D • VISA") -->
+  <text x="248" y="482" font-family="'JetBrains Mono', monospace" font-weight="800" font-size="12" fill="#FF5722" text-anchor="middle" letter-spacing="3">COMIC LORE • 3D • VISA</text>
 </svg>

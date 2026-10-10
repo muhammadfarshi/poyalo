@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import confetti from 'canvas-confetti';
 import { 
   Sparkles, 
   HelpCircle, 
@@ -11,7 +12,11 @@ import {
   Flame, 
   MapPin, 
   Compass,
-  Check
+  Check,
+  X,
+  Send,
+  MessageSquarePlus,
+  Bookmark
 } from 'lucide-react';
 import { CURATED_MYTHS, POPULAR_DESTINATIONS, TravelMyth } from '../../data/mythData';
 import { generateAIMyths } from '../../services/aiService';
@@ -19,6 +24,14 @@ import { generateAIMyths } from '../../services/aiService';
 interface MythPointerViewProps {
   initialCity?: string;
   onSelectCity?: (city: string) => void;
+}
+
+interface UserSuggestedMyth {
+  id: string;
+  placeName: string;
+  category: string;
+  content: string;
+  submittedAt: string;
 }
 
 export const MythPointerView: React.FC<MythPointerViewProps> = ({
@@ -31,6 +44,21 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
   const [isGeneratingAI, setIsGeneratingAI] = useState<boolean>(false);
   const [customMyths, setCustomMyths] = useState<Record<string, TravelMyth[]>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Suggest Myth to Admin Modal States
+  const [isSuggestModalOpen, setIsSuggestModalOpen] = useState<boolean>(false);
+  const [suggestPlace, setSuggestPlace] = useState<string>('');
+  const [suggestCategory, setSuggestCategory] = useState<string>('Cultural Etiquette & Society');
+  const [suggestContent, setSuggestContent] = useState<string>('');
+  const [suggestToast, setSuggestToast] = useState<string | null>(null);
+  const [submittedCount, setSubmittedCount] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('poyalo_user_submitted_myths');
+      return saved ? JSON.parse(saved).length : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   // Sync state whenever initialCity changes from parent (e.g. planner or route selection)
   useEffect(() => {
@@ -81,7 +109,6 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
     if (resolvedCuratedKey && CURATED_MYTHS[resolvedCuratedKey]) {
       return CURATED_MYTHS[resolvedCuratedKey];
     }
-    // Default to Tokyo if none selected
     return CURATED_MYTHS['Tokyo'] || [];
   }, [selectedCity, resolvedCuratedKey, customMyths]);
 
@@ -101,7 +128,6 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
     const target = customInput.trim();
     if (!target) return;
 
-    // Check if matching curated destination
     const match = POPULAR_DESTINATIONS.find(d => 
       d.name.toLowerCase() === target.toLowerCase() || target.toLowerCase().includes(d.name.toLowerCase())
     );
@@ -141,27 +167,96 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
     }
   };
 
+  const handleOpenSuggestModal = () => {
+    setSuggestPlace(selectedCity || '');
+    setIsSuggestModalOpen(true);
+  };
+
+  const handleSubmitSuggestedMyth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!suggestPlace.trim() || !suggestCategory.trim() || !suggestContent.trim()) {
+      alert('Please fill out all 3 boxes (Place name, Category, and Myth content) before submitting.');
+      return;
+    }
+
+    const newSuggestion: UserSuggestedMyth = {
+      id: `myth-sub-${Date.now()}`,
+      placeName: suggestPlace.trim(),
+      category: suggestCategory.trim(),
+      content: suggestContent.trim(),
+      submittedAt: new Date().toISOString()
+    };
+
+    try {
+      const existing = JSON.parse(localStorage.getItem('poyalo_user_submitted_myths') || '[]');
+      existing.unshift(newSuggestion);
+      localStorage.setItem('poyalo_user_submitted_myths', JSON.stringify(existing));
+      setSubmittedCount(existing.length);
+    } catch (err) {
+      console.warn('Storage error saving myth:', err);
+    }
+
+    try {
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.6 } });
+    } catch {}
+
+    setSuggestToast(`✨ Myth for ${newSuggestion.placeName} submitted to POYALO admin review!`);
+    setIsSuggestModalOpen(false);
+    setSuggestContent('');
+
+    setTimeout(() => {
+      setSuggestToast(null);
+    }, 4500);
+  };
+
   return (
     <div className="space-y-6 pb-24 max-w-4xl mx-auto">
       
       {/* Header Banner */}
       <div className="bg-[#FFFFFF] border-[2.5px] border-[#111827] rounded-2xl p-4 sm:p-6 shadow-[4px_4px_0px_#111827] relative overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="bg-[#FF5722] text-white px-2.5 py-0.5 rounded font-mono font-black text-xs uppercase border border-[#111827]">
-            POYALO • MYTH POINTER
-          </span>
-          <span className="bg-[#FBBF24] text-[#111827] px-2 py-0.5 rounded font-mono font-bold text-[11px] border border-[#111827]">
-            CULTURE & REALITY AUDIT
-          </span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="bg-[#FF5722] text-white px-2.5 py-0.5 rounded font-mono font-black text-xs uppercase border border-[#111827]">
+                POYALO • MYTH POINTER
+              </span>
+              <span className="bg-[#FBBF24] text-[#111827] px-2 py-0.5 rounded font-mono font-bold text-[11px] border border-[#111827]">
+                CULTURE & REALITY AUDIT
+              </span>
+            </div>
+            
+            <h1 className="text-2xl sm:text-3xl font-display font-black text-[#111827] mt-2 tracking-tight">
+              Destination Myth Buster & Local Lore
+            </h1>
+            <p className="text-xs sm:text-sm font-mono text-gray-700 mt-1 max-w-2xl">
+              Don’t fall for outdated stereotypes or embarrassing tourist traps. Based on your destination, 
+              we point out cultural truths, etiquette customs, monument realities, and food etiquette before you land.
+            </p>
+          </div>
+
+          {/* Suggest a Myth to Admin Button */}
+          <button
+            type="button"
+            onClick={handleOpenSuggestModal}
+            className="self-start sm:self-center px-4 py-2.5 bg-[#9333EA] hover:bg-[#7E22CE] text-white border-2 border-[#111827] rounded-xl font-mono font-black text-xs uppercase shadow-[3px_3px_0px_#111827] flex items-center space-x-2 active:translate-x-0.5 active:translate-y-0.5 transition-all whitespace-nowrap min-h-[44px]"
+          >
+            <Lightbulb className="w-4 h-4 text-amber-300" />
+            <span>SUGGEST MYTH TO ADMIN</span>
+            {submittedCount > 0 && (
+              <span className="bg-amber-300 text-[#111827] text-[10px] px-1.5 py-0.2 rounded font-black border border-[#111827]">
+                {submittedCount}
+              </span>
+            )}
+          </button>
         </div>
-        
-        <h1 className="text-2xl sm:text-3xl font-display font-black text-[#111827] mt-2 tracking-tight">
-          Destination Myth Buster & Local Lore
-        </h1>
-        <p className="text-xs sm:text-sm font-mono text-gray-700 mt-1 max-w-2xl">
-          Don’t fall for outdated stereotypes or embarrassing tourist traps. Based on your booked destination, 
-          we point out cultural truths, etiquette customs, monument realities, and food etiquette before you land.
-        </p>
+
+        {/* Suggestion Toast notification */}
+        {suggestToast && (
+          <div className="mt-4 p-3 bg-emerald-100 border-2 border-[#111827] rounded-xl text-emerald-950 text-xs font-mono font-bold flex items-center space-x-2 shadow-[2px_2px_0px_#111827] animate-bounce">
+            <Check className="w-4 h-4 text-emerald-700" />
+            <span>{suggestToast}</span>
+          </div>
+        )}
 
         {/* Destination Quick Selector Pills */}
         <div className="mt-4 pt-3 border-t border-gray-200">
@@ -382,6 +477,110 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
           <p className="text-sm font-mono font-bold text-gray-500">
             No myths found for this filter. Try selecting "ALL MYTHS" or enter another city above!
           </p>
+        </div>
+      )}
+
+      {/* SUGGEST MYTH TO ADMIN MODAL WINDOW (3 BOXES) */}
+      {isSuggestModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white border-[2.5px] border-[#111827] rounded-2xl p-5 sm:p-6 max-w-lg w-full shadow-[6px_6px_0px_#111827] space-y-4 my-8">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b-2 border-[#111827]">
+              <div>
+                <span className="bg-[#9333EA] text-white text-[10px] font-mono font-black px-2 py-0.5 rounded border border-[#111827] uppercase">
+                  COMMUNITY CONTRIBUTION
+                </span>
+                <h3 className="font-display font-black text-xl text-[#111827] mt-1">
+                  Suggest a Travel Myth to Admin
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSuggestModalOpen(false)}
+                className="w-8 h-8 rounded-lg border-2 border-[#111827] bg-[#FDFBF7] hover:bg-gray-100 flex items-center justify-center text-gray-700 shadow-[1.5px_1.5px_0px_#111827]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs font-mono text-gray-600">
+              Discovered an outdated travel stereotype, hidden tourist trap, or dining misconception? Fill out the 3 boxes below to submit it directly for curator review.
+            </p>
+
+            <form onSubmit={handleSubmitSuggestedMyth} className="space-y-4">
+              
+              {/* BOX 1: PLACE NAME */}
+              <div>
+                <label className="block text-xs font-mono font-black text-[#111827] uppercase mb-1">
+                  BOX 1 • Destination Place Name:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={suggestPlace}
+                  onChange={(e) => setSuggestPlace(e.target.value)}
+                  placeholder="e.g. Kyoto, Japan or Venice, Italy or Dubai, UAE"
+                  className="w-full px-3.5 py-2.5 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs font-bold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#9333EA] shadow-inner"
+                />
+              </div>
+
+              {/* BOX 2: CATEGORY OF MYTH */}
+              <div>
+                <label className="block text-xs font-mono font-black text-[#111827] uppercase mb-1">
+                  BOX 2 • Category of Myth:
+                </label>
+                <select
+                  value={suggestCategory}
+                  onChange={(e) => setSuggestCategory(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs font-bold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#9333EA]"
+                >
+                  <option value="Cultural Etiquette & Society">👥 Humans, Society & Local Etiquette</option>
+                  <option value="Monuments & Sightseeing Realities">🏛️ Monuments & Sightseeing Realities</option>
+                  <option value="Food & Dining Misconceptions">🍜 Food, Tipping & Dining Customs</option>
+                  <option value="Ancient Traditions & Folklore">📜 Ancient Traditions, Taboos & Superstitions</option>
+                  <option value="Tourist Traps & Safety Scams">⚠️ Tourist Traps, Scams & Street Safety</option>
+                  <option value="Pricing, Currency & Haggling">💰 Pricing, Cash vs Card & Haggling</option>
+                  <option value="Local Laws & Dress Code">⚖️ Local Laws & Dress Regulations</option>
+                </select>
+              </div>
+
+              {/* BOX 3: CONTENT OF THE MYTH */}
+              <div>
+                <label className="block text-xs font-mono font-black text-[#111827] uppercase mb-1">
+                  BOX 3 • Content of the Myth & Reality:
+                </label>
+                <textarea
+                  required
+                  rows={4}
+                  value={suggestContent}
+                  onChange={(e) => setSuggestContent(e.target.value)}
+                  placeholder="What is the myth or stereotype travelers believe? And what is the authentic reality or insider tip they should know instead?"
+                  className="w-full px-3.5 py-2.5 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs font-bold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#9333EA] shadow-inner"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end space-x-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsSuggestModalOpen(false)}
+                  className="px-4 py-2.5 bg-[#FDFBF7] hover:bg-gray-100 border-2 border-[#111827] rounded-xl text-xs font-mono font-bold text-gray-700 shadow-[2px_2px_0px_#111827]"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-[#9333EA] hover:bg-[#7E22CE] text-white border-2 border-[#111827] rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-[3px_3px_0px_#111827] active:translate-x-0.5 active:translate-y-0.5 flex items-center space-x-1.5"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>SUBMIT MYTH TO ADMIN</span>
+                </button>
+              </div>
+
+            </form>
+
+          </div>
         </div>
       )}
 

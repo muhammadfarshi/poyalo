@@ -8,15 +8,17 @@ import {
   Send, 
   HelpCircle, 
   MapPin, 
-  Compass,
-  Plus,
-  Clock,
-  Layers,
-  Check
+  Compass, 
+  Plus, 
+  Clock, 
+  Layers, 
+  Check,
+  ShieldCheck 
 } from 'lucide-react';
 import { ItineraryStop, ItineraryDay } from '../../types/itinerary';
 import { generateAIPlan } from '../../services/aiService';
 import { StopCard } from './StopCard';
+import { PassportExpiryWidget } from '../passport/PassportExpiryWidget';
 
 interface ItineraryPlannerProps {
   onOpenMyths?: (city: string) => void;
@@ -44,6 +46,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
   const [currentCity, setCurrentCity] = useState<string>(activeCity || 'Tokyo');
   const [tripTheme, setTripTheme] = useState<string>('');
   const [countryName, setCountryName] = useState<string>('Worldwide');
+  const [showPassportWidget, setShowPassportWidget] = useState<boolean>(false);
 
   // Currently displayed day
   const activeDay = days[activeDayIndex] || days[0] || null;
@@ -542,6 +545,32 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          {/* Quick Passport Expiry Sanity Check Widget Toggle */}
+          <div className="flex items-center justify-between bg-white border-2 border-[#111827] rounded-xl p-2.5 shadow-[2px_2px_0px_#111827]">
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span className="font-mono font-bold text-xs text-gray-800">
+                Planning an International Flight? Verify 180-Day Passport Rule
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPassportWidget(!showPassportWidget)}
+              className="px-3 py-1.5 bg-[#FDFBF7] hover:bg-emerald-50 text-[#111827] border-2 border-[#111827] rounded-xl text-xs font-mono font-black shadow-[2px_2px_0px_#111827] flex items-center space-x-1 active:translate-x-0.5"
+            >
+              <span>{showPassportWidget ? 'HIDE WIDGET ▲' : 'OPEN PASSPORT WIDGET ▼'}</span>
+            </button>
+          </div>
+
+          {/* Expandable Passport Expiry Widget */}
+          {showPassportWidget && (
+            <div className="animate-in fade-in duration-300">
+              <PassportExpiryWidget 
+                initialDestination={countryName.toLowerCase().includes('japan') ? 'JP' : countryName.slice(0, 2).toUpperCase()} 
+              />
+            </div>
+          )}
 
           {/* Timeline Stop Cards for Active Day */}
           <div className="space-y-3 pt-1">
