@@ -6,12 +6,14 @@ import { ComicStoryBox } from './components/comic/ComicStoryBox';
 import { VGWorldGame } from './components/game/VGWorldGame';
 import { EntryCheckView } from './components/planner/EntryCheckView';
 import { BoardingPass } from './components/pass/BoardingPass';
+import { MythPointerView } from './components/myth/MythPointerView';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('planner');
   const [gameScore, setGameScore] = useState<number>(0);
   const [pearlsCollected, setPearlsCollected] = useState<number>(0);
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
+  const [currentCity, setCurrentCity] = useState<string>('Dubai');
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -37,9 +39,16 @@ export const App: React.FC = () => {
       setActiveTab('game');
     } else if (activeTab === 'game') {
       setActiveTab('comic');
+    } else if (activeTab === 'comic') {
+      setActiveTab('myths');
     } else {
       setActiveTab('planner');
     }
+  };
+
+  const handleOpenMythsForCity = (city: string) => {
+    setCurrentCity(city);
+    setActiveTab('myths');
   };
 
   return (
@@ -53,8 +62,19 @@ export const App: React.FC = () => {
 
       {/* Main Viewport Container */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-5">
-        {activeTab === 'planner' && <ItineraryPlanner />}
+        {activeTab === 'planner' && (
+          <ItineraryPlanner 
+            activeCity={currentCity}
+            onOpenMyths={handleOpenMythsForCity} 
+          />
+        )}
         {activeTab === 'comic' && <ComicStoryBox />}
+        {activeTab === 'myths' && (
+          <MythPointerView 
+            initialCity={currentCity}
+            onSelectCity={setCurrentCity}
+          />
+        )}
         {activeTab === 'game' && <VGWorldGame onScoreUpdate={handleScoreUpdate} />}
         {activeTab === 'entry' && <EntryCheckView />}
         {activeTab === 'pass' && (

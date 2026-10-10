@@ -11,9 +11,15 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
-  Send
+  Send,
+  HelpCircle
 } from 'lucide-react';
 import { ItineraryStop } from '../../types/itinerary';
+
+interface ItineraryPlannerProps {
+  onOpenMyths?: (city: string) => void;
+  activeCity?: string;
+}
 import { auditItinerary } from '../../engines/realityCheckEngine';
 import { autoRepairItinerary } from '../../engines/autoRepairEngine';
 import { getRandomMurphyScenario } from '../../engines/murphyEngine';
@@ -126,13 +132,17 @@ export const OPTIMAL_PRESET_STOPS: ItineraryStop[] = [
   }
 ];
 
-export const ItineraryPlanner: React.FC = () => {
+export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
+  onOpenMyths,
+  activeCity = 'Dubai'
+}) => {
   const [stops, setStops] = useState<ItineraryStop[]>(CHAOTIC_PRESET_STOPS);
   const [userPrompt, setUserPrompt] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [planToast, setPlanToast] = useState<string | null>(null);
   const [isMurphyActive, setIsMurphyActive] = useState<boolean>(false);
   const [commentaryMode, setCommentaryMode] = useState<'roast' | 'professor'>('roast');
+  const [currentCity, setCurrentCity] = useState<string>(activeCity);
   const [routeTitle, setRouteTitle] = useState<string>('DAY 1: CULTURAL LORE ROUTE');
   const [routeSubtitle, setRouteSubtitle] = useState<string>('HERITAGE TRAIL');
 
@@ -180,6 +190,7 @@ export const ItineraryPlanner: React.FC = () => {
       const plan = await generateAIPlan(promptToUse);
       if (plan && plan.stops.length > 0) {
         setStops(plan.stops);
+        if (plan.city) setCurrentCity(plan.city);
         setRouteTitle(`DAY 1: ${plan.theme.toUpperCase()}`);
         setRouteSubtitle(`${plan.city.toUpperCase()}, ${plan.country.toUpperCase()}`);
         setPlanToast(`✨ Generated ${plan.stops.length} stops for ${plan.city}!`);
@@ -416,6 +427,29 @@ export const ItineraryPlanner: React.FC = () => {
           <p className="text-xs sm:text-sm font-mono text-[#111827] leading-relaxed pt-1">
             "{commentaryMode === 'roast' ? auditResult.roastVerdict : auditResult.professorVerdict}"
           </p>
+        </div>
+
+        {/* Myth Pointer Route Intelligence Card */}
+        <div className="bg-[#9333EA] text-white border-[2.5px] border-[#111827] rounded-xl p-3.5 shadow-[3px_3px_0px_#111827] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center space-x-1.5">
+              <HelpCircle className="w-4 h-4 text-amber-300" />
+              <span className="font-mono font-black text-xs uppercase tracking-wide">
+                MYTH POINTER • {currentCity.toUpperCase()}
+              </span>
+            </div>
+            <p className="text-[11px] font-mono text-purple-100">
+              Check cultural taboos, dining misconceptions & tourist scams before you arrive in {currentCity}.
+            </p>
+          </div>
+
+          <button
+            onClick={() => onOpenMyths && onOpenMyths(currentCity)}
+            className="px-3.5 py-2 bg-white text-[#111827] hover:bg-amber-100 border-2 border-[#111827] rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-[2px_2px_0px_#111827] flex items-center justify-center space-x-1.5 whitespace-nowrap active:translate-x-0.5 active:translate-y-0.5 transition-all min-h-[40px]"
+          >
+            <span>🔮 AUDIT MYTHS FOR {currentCity.toUpperCase()}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
 
       </div>

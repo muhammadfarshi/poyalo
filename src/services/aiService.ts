@@ -184,3 +184,77 @@ Return a valid JSON object matching this schema:
     sources: parsed.sources || ['Local Historical Archives']
   };
 }
+
+export interface GeneratedMythItem {
+  id: string;
+  city: string;
+  country: string;
+  category: 'humans' | 'monuments' | 'food' | 'traditional' | 'safety';
+  categoryLabel: string;
+  emoji: string;
+  myth: string;
+  reality: string;
+  insiderTip: string;
+  severity: 'high' | 'medium' | 'fun';
+}
+
+export async function generateAIMyths(destinationName: string): Promise<GeneratedMythItem[]> {
+  const prompt = `You are a cultural myth-buster and local etiquette expert for POYALO travel app.
+The traveler has booked or is planning a trip to: "${destinationName}".
+Identify the most prevalent myths, misconceptions, tourist stereotypes, and cultural traps related to:
+1. The local humans / people & their social etiquette
+2. Famous monuments & attractions
+3. Food, dining, and drinking traditions
+4. Real tourist traps or safety realities
+
+Return ONLY a valid JSON array of 4 distinct myth objects matching this schema:
+[
+  {
+    "category": "humans" | "monuments" | "food" | "traditional" | "safety",
+    "categoryLabel": "Short category title (e.g. People & Customs)",
+    "emoji": "Single relevant emoji decal",
+    "myth": "The common false belief or tourist misconception (1-2 sentences)",
+    "reality": "The authentic local reality, historical fact, or cultural truth (2 sentences)",
+    "insiderTip": "Actionable local etiquette advice or insider hack for visitors (1-2 sentences)",
+    "severity": "high" | "medium" | "fun"
+  }
+]`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.7
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to generate myths for ${destinationName}`);
+  }
+
+  const data = await response.json();
+  const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!textContent) throw new Error('No myth data received from AI');
+
+  const parsed = JSON.parse(textContent);
+  const items = Array.isArray(parsed) ? parsed : parsed.myths || [];
+
+  return items.map((m: any, idx: number) => ({
+    id: `ai-myth-${Date.now()}-${idx}`,
+    city: destinationName,
+    country: m.country || 'Destination',
+    category: m.category || 'traditional',
+    categoryLabel: m.categoryLabel || 'Local Lore',
+    emoji: m.emoji || '💡',
+    myth: m.myth || 'Common tourist misconception.',
+    reality: m.reality || 'The local authentic reality.',
+    insiderTip: m.insiderTip || 'Be respectful and ask locals politely.',
+    severity: m.severity || 'fun'
+  }));
+}

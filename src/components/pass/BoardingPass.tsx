@@ -1,5 +1,20 @@
-import React from 'react';
-import { QrCode, Sparkles, Check, Share2, Award, Compass } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  QrCode, 
+  Sparkles, 
+  Check, 
+  Share2, 
+  Award, 
+  Compass, 
+  Edit3, 
+  Save, 
+  RotateCcw, 
+  Printer, 
+  Plane,
+  User,
+  Calendar,
+  MapPin
+} from 'lucide-react';
 
 interface BoardingPassProps {
   gameScore: number;
@@ -7,57 +22,342 @@ interface BoardingPassProps {
   itineraryScore?: number;
 }
 
+interface PassData {
+  passengerName: string;
+  originCode: string;
+  originName: string;
+  destCode: string;
+  destName: string;
+  trailName: string;
+  seat: string;
+  passClass: string;
+  date: string;
+  bookingRef: string;
+  verificationStatus: string;
+}
+
+const DEFAULT_PASS_DATA: PassData = {
+  passengerName: 'ALEX CHEN',
+  originCode: 'DXB',
+  originName: 'DUBAI METROPOLIS',
+  destCode: 'CREEK',
+  destName: 'AL FAHIDI DISTRICT',
+  trailName: 'HERITAGE TRAIL',
+  seat: '09F',
+  passClass: 'EXPLORER CLASS',
+  date: '16 OCT 2026',
+  bookingRef: 'POY-2026-DXB',
+  verificationStatus: 'PASSPORT 180-DAY VALID'
+};
+
+const PRESET_ROUTES = [
+  {
+    name: 'Dubai Heritage',
+    originCode: 'DXB',
+    originName: 'DUBAI INTERNATIONAL',
+    destCode: 'CREEK',
+    destName: 'AL FAHIDI DISTRICT',
+    trailName: 'CREEK PEARL TRAIL',
+    bookingRef: 'POY-DXB-772'
+  },
+  {
+    name: 'Tokyo Neon & Temples',
+    originCode: 'HND',
+    originName: 'TOKYO HANEDA',
+    destCode: 'SHIBUYA',
+    destName: 'MEIJI & SHIBUYA',
+    trailName: 'BLADE RUNNER TRAIL',
+    bookingRef: 'POY-TYO-901'
+  },
+  {
+    name: 'Paris Romance',
+    originCode: 'CDG',
+    originName: 'PARIS CHARLES DE GAULLE',
+    destCode: 'LOUVRE',
+    destName: 'MONTMARTRE & SEINE',
+    trailName: 'BOHEMIAN TRAIL',
+    bookingRef: 'POY-CDG-314'
+  },
+  {
+    name: 'Rome Ancient Forum',
+    originCode: 'FCO',
+    originName: 'ROME FIUMICINO',
+    destCode: 'FORUM',
+    destName: 'COLOSSEUM & FORUM',
+    trailName: 'GLADIATOR TRAIL',
+    bookingRef: 'POY-FCO-505'
+  },
+  {
+    name: 'Bangkok Street Food',
+    originCode: 'BKK',
+    originName: 'BANGKOK SUVARNABHUMI',
+    destCode: 'OLD CITY',
+    destName: 'WAT PHO & CHINATOWN',
+    trailName: 'SPICE CANAL TRAIL',
+    bookingRef: 'POY-BKK-888'
+  }
+];
+
 export const BoardingPass: React.FC<BoardingPassProps> = ({
   gameScore = 0,
   pearlsCollected = 0,
   itineraryScore = 94
 }) => {
+  const [passData, setPassData] = useState<PassData>(() => {
+    try {
+      const saved = localStorage.getItem('poyalo_boarding_pass');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return DEFAULT_PASS_DATA;
+  });
+
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+
+  // Sync to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('poyalo_boarding_pass', JSON.stringify(passData));
+    } catch {
+      // ignore storage quota
+    }
+  }, [passData]);
+
+  const handleApplyPreset = (preset: typeof PRESET_ROUTES[0]) => {
+    setPassData(prev => ({
+      ...prev,
+      originCode: preset.originCode,
+      originName: preset.originName,
+      destCode: preset.destCode,
+      destName: preset.destName,
+      trailName: preset.trailName,
+      bookingRef: preset.bookingRef
+    }));
+  };
+
+  const handleResetDefaults = () => {
+    setPassData(DEFAULT_PASS_DATA);
+  };
+
+  const handleSharePass = () => {
+    const summary = 
+      `🎫 POYALO BOARDING PASS\n` +
+      `Passenger: ${passData.passengerName} (${passData.seat})\n` +
+      `Route: ${passData.originCode} ➔ ${passData.destCode} (${passData.trailName})\n` +
+      `Class: ${passData.passClass} | Date: ${passData.date}\n` +
+      `Booking Ref: ${passData.bookingRef}\n` +
+      `Verification: ${passData.verificationStatus}\n` +
+      `Reality Score: ${itineraryScore}/100 | VG Score: ${gameScore} PTS\n` +
+      `https://dufaii.vercel.app`;
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(summary);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } else {
+      alert("Boarding Pass details copied!");
+    }
+  };
+
   return (
     <div className="space-y-6 pb-24 max-w-md mx-auto">
       
-      {/* Header */}
-      <div className="text-center space-y-1">
-        <span className="bg-[#FFA07A] text-[#111827] px-2.5 py-0.5 rounded font-mono font-black text-xs uppercase border border-[#111827]">
-          TRAVEL TOKEN • DIGITAL BOARDING PASS
-        </span>
-        <h1 className="text-2xl font-display font-black text-[#111827]">
-          Your POYALO Boarding Stub
-        </h1>
-        <p className="text-xs font-mono text-gray-600">
-          Your Travel Explorer Achievement Card
-        </p>
+      {/* Header & Edit Mode Switch */}
+      <div className="flex items-center justify-between">
+        <div className="text-left space-y-0.5">
+          <span className="bg-[#FFA07A] text-[#111827] px-2 py-0.5 rounded font-mono font-black text-[11px] uppercase border border-[#111827]">
+            TRAVEL TOKEN • BOARDING PASS
+          </span>
+          <h1 className="text-2xl font-display font-black text-[#111827]">
+            Digital Boarding Stub
+          </h1>
+        </div>
+
+        <button
+          onClick={() => setIsEditing(!isEditing)}
+          className={`px-3 py-2 rounded-xl border-2 border-[#111827] font-mono text-xs font-black flex items-center space-x-1.5 transition-all shadow-[2px_2px_0px_#111827] active:translate-x-0.5 active:translate-y-0.5 ${
+            isEditing 
+              ? 'bg-[#10B981] text-white hover:bg-emerald-600' 
+              : 'bg-white text-[#111827] hover:bg-gray-100'
+          }`}
+        >
+          {isEditing ? (
+            <>
+              <Save className="w-3.5 h-3.5" />
+              <span>SAVE STUB</span>
+            </>
+          ) : (
+            <>
+              <Edit3 className="w-3.5 h-3.5 text-[#1B3FFF]" />
+              <span>EDIT STUB</span>
+            </>
+          )}
+        </button>
       </div>
 
+      {/* Quick Route Preset Bar (Visible when editing) */}
+      {isEditing && (
+        <div className="bg-white border-2 border-[#111827] rounded-2xl p-3.5 shadow-[3px_3px_0px_#111827] space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-mono font-black text-gray-500 uppercase">
+              ⚡ QUICK ROUTE PRESETS:
+            </span>
+            <button
+              onClick={handleResetDefaults}
+              className="text-[10px] font-mono text-red-600 hover:underline flex items-center space-x-1"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Reset Defaults</span>
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESET_ROUTES.map(preset => (
+              <button
+                key={preset.name}
+                onClick={() => handleApplyPreset(preset)}
+                className="px-2.5 py-1 bg-[#FDFBF7] hover:bg-amber-100 border border-[#111827] rounded-lg text-[10px] font-mono font-bold text-[#111827] transition-colors"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* The Neo-Brutalist Vertical Boarding Pass */}
-      <div className="relative bg-white border-[2.5px] border-[#111827] rounded-3xl overflow-hidden shadow-[6px_6px_0px_#111827]">
+      <div className="relative bg-white border-[2.5px] border-[#111827] rounded-3xl overflow-hidden shadow-[6px_6px_0px_#111827] print:shadow-none">
         
         {/* Pass Top Section */}
         <div className="p-5 bg-[#1B3FFF] text-white space-y-4">
           <div className="flex items-center justify-between">
-            <span className="font-mono font-black text-xs tracking-widest uppercase bg-white/20 px-2 py-0.5 rounded">
-              POYALO • EXPLORER PASS
-            </span>
-            <span className="font-mono font-bold text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded border border-[#111827]">
-              SEAT 09F
-            </span>
+            {isEditing ? (
+              <input
+                type="text"
+                value={passData.passClass}
+                onChange={(e) => setPassData({ ...passData, passClass: e.target.value.toUpperCase() })}
+                className="bg-white/20 border border-white/50 px-2 py-0.5 rounded font-mono font-black text-xs text-white uppercase focus:outline-none focus:ring-1 focus:ring-white max-w-[170px]"
+              />
+            ) : (
+              <span className="font-mono font-black text-xs tracking-widest uppercase bg-white/20 px-2 py-0.5 rounded">
+                {passData.passClass}
+              </span>
+            )}
+
+            {isEditing ? (
+              <input
+                type="text"
+                value={passData.seat}
+                onChange={(e) => setPassData({ ...passData, seat: e.target.value.toUpperCase() })}
+                placeholder="SEAT"
+                className="bg-[#FF5722] border border-[#111827] text-white px-2 py-0.5 rounded font-mono font-bold text-xs uppercase focus:outline-none w-20 text-center"
+              />
+            ) : (
+              <span className="font-mono font-bold text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded border border-[#111827]">
+                SEAT {passData.seat}
+              </span>
+            )}
           </div>
 
-          {/* Route Display */}
-          <div className="flex items-center justify-between pt-1">
+          {/* Passenger Name Header */}
+          <div className="border-t border-white/20 pt-2 flex items-center justify-between">
             <div>
-              <span className="text-3xl font-display font-black tracking-tight">DXB</span>
-              <p className="text-[10px] font-mono text-blue-200">SAMPLE CITY</p>
-            </div>
-
-            <div className="flex flex-col items-center">
-              <Compass className="w-6 h-6 text-amber-300 animate-pulse" />
-              <div className="w-16 h-[2px] bg-white/40 my-1" />
-              <span className="text-[9px] font-mono text-blue-200">HERITAGE TRAIL</span>
+              <span className="text-[9px] font-mono text-blue-200 block uppercase">PASSENGER NAME</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={passData.passengerName}
+                  onChange={(e) => setPassData({ ...passData, passengerName: e.target.value.toUpperCase() })}
+                  className="bg-white/20 border border-white/50 px-2 py-0.5 rounded font-display font-black text-sm text-white uppercase focus:outline-none w-44"
+                />
+              ) : (
+                <span className="font-display font-black text-sm tracking-wide text-white">
+                  {passData.passengerName}
+                </span>
+              )}
             </div>
 
             <div className="text-right">
-              <span className="text-3xl font-display font-black tracking-tight">CREEK</span>
-              <p className="text-[10px] font-mono text-blue-200">AL FAHIDI DISTRICT</p>
+              <span className="text-[9px] font-mono text-blue-200 block uppercase">TRAVEL DATE</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={passData.date}
+                  onChange={(e) => setPassData({ ...passData, date: e.target.value.toUpperCase() })}
+                  className="bg-white/20 border border-white/50 px-2 py-0.5 rounded font-mono font-bold text-xs text-white uppercase focus:outline-none w-28 text-right"
+                />
+              ) : (
+                <span className="font-mono font-bold text-xs text-white">
+                  {passData.date}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Route Display */}
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              {isEditing ? (
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    value={passData.originCode}
+                    onChange={(e) => setPassData({ ...passData, originCode: e.target.value.toUpperCase() })}
+                    className="bg-white/20 border border-white/50 px-1 py-0.5 rounded font-display font-black text-2xl text-white w-20 uppercase"
+                  />
+                  <input
+                    type="text"
+                    value={passData.originName}
+                    onChange={(e) => setPassData({ ...passData, originName: e.target.value.toUpperCase() })}
+                    className="bg-white/20 border border-white/50 px-1 py-0.5 rounded font-mono text-[9px] text-blue-100 w-28 uppercase block"
+                  />
+                </div>
+              ) : (
+                <>
+                  <span className="text-3xl font-display font-black tracking-tight">{passData.originCode}</span>
+                  <p className="text-[10px] font-mono text-blue-200 truncate max-w-[100px]">{passData.originName}</p>
+                </>
+              )}
+            </div>
+
+            <div className="flex flex-col items-center px-2">
+              <Compass className="w-6 h-6 text-amber-300 animate-pulse" />
+              <div className="w-16 h-[2px] bg-white/40 my-1" />
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={passData.trailName}
+                  onChange={(e) => setPassData({ ...passData, trailName: e.target.value.toUpperCase() })}
+                  className="bg-white/20 border border-white/50 px-1 py-0.5 rounded font-mono text-[8px] text-blue-100 w-24 text-center uppercase"
+                />
+              ) : (
+                <span className="text-[9px] font-mono text-blue-200 text-center">{passData.trailName}</span>
+              )}
+            </div>
+
+            <div className="text-right">
+              {isEditing ? (
+                <div className="space-y-1 text-right">
+                  <input
+                    type="text"
+                    value={passData.destCode}
+                    onChange={(e) => setPassData({ ...passData, destCode: e.target.value.toUpperCase() })}
+                    className="bg-white/20 border border-white/50 px-1 py-0.5 rounded font-display font-black text-2xl text-white w-20 uppercase text-right"
+                  />
+                  <input
+                    type="text"
+                    value={passData.destName}
+                    onChange={(e) => setPassData({ ...passData, destName: e.target.value.toUpperCase() })}
+                    className="bg-white/20 border border-white/50 px-1 py-0.5 rounded font-mono text-[9px] text-blue-100 w-28 uppercase text-right block ml-auto"
+                  />
+                </div>
+              ) : (
+                <>
+                  <span className="text-3xl font-display font-black tracking-tight">{passData.destCode}</span>
+                  <p className="text-[10px] font-mono text-blue-200 truncate max-w-[100px]">{passData.destName}</p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -91,35 +391,74 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
 
         {/* Bottom Stub: QR Code & Verification */}
         <div className="p-5 bg-[#FDFBF7] flex items-center justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1.5 flex-1 pr-3">
             <span className="text-[10px] font-mono font-black text-gray-500 uppercase block">
               OFFICIAL VERIFICATION
             </span>
             <div className="flex items-center space-x-1.5 text-xs font-mono font-black text-[#111827]">
-              <Check className="w-4 h-4 text-emerald-600" />
-              <span>PASSPORT 180-DAY VALID</span>
+              <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={passData.verificationStatus}
+                  onChange={(e) => setPassData({ ...passData, verificationStatus: e.target.value.toUpperCase() })}
+                  className="bg-white border border-gray-300 px-1 py-0.5 rounded text-[10px] font-mono font-bold w-full uppercase"
+                />
+              ) : (
+                <span className="truncate">{passData.verificationStatus}</span>
+              )}
             </div>
-            <p className="text-[10px] font-mono text-gray-500">
-              Booking Ref: <strong className="text-[#111827]">POY-2026-DXB</strong>
+            
+            <p className="text-[10px] font-mono text-gray-500 flex items-center space-x-1">
+              <span>Booking Ref:</span>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={passData.bookingRef}
+                  onChange={(e) => setPassData({ ...passData, bookingRef: e.target.value.toUpperCase() })}
+                  className="bg-white border border-gray-300 px-1 py-0.2 rounded text-[10px] font-mono font-black w-28 uppercase"
+                />
+              ) : (
+                <strong className="text-[#111827] font-black">{passData.bookingRef}</strong>
+              )}
             </p>
           </div>
 
           {/* Retro QR Block */}
-          <div className="w-16 h-16 bg-white border-2 border-[#111827] rounded-xl p-1 shadow-[2px_2px_0px_#111827] flex items-center justify-center">
+          <div className="w-16 h-16 bg-white border-2 border-[#111827] rounded-xl p-1 shadow-[2px_2px_0px_#111827] flex items-center justify-center flex-shrink-0">
             <QrCode className="w-12 h-12 text-[#111827]" />
           </div>
         </div>
 
       </div>
 
-      {/* Share / Save Pass Button */}
-      <button 
-        onClick={() => alert("Boarding Pass Token copied to clipboard! Ready to share with your group chat.")}
-        className="w-full py-3 bg-[#111827] text-white border-2 border-[#111827] rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-[4px_4px_0px_#FF5722] flex items-center justify-center space-x-2 active:translate-x-0.5 active:translate-y-0.5"
-      >
-        <Share2 className="w-4 h-4" />
-        <span>SHARE BOARDING PASS WITH TRIP GROUP</span>
-      </button>
+      {/* Action Buttons Grid */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <button 
+          onClick={handleSharePass}
+          className="py-3 px-3 bg-[#111827] text-white border-2 border-[#111827] rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-[3px_3px_0px_#FF5722] flex items-center justify-center space-x-2 active:translate-x-0.5 active:translate-y-0.5 transition-all min-h-[48px]"
+        >
+          {copied ? (
+            <>
+              <Check className="w-4 h-4 text-emerald-400" />
+              <span>COPIED!</span>
+            </>
+          ) : (
+            <>
+              <Share2 className="w-4 h-4" />
+              <span>SHARE STUB</span>
+            </>
+          )}
+        </button>
+
+        <button 
+          onClick={() => window.print()}
+          className="py-3 px-3 bg-white text-[#111827] border-2 border-[#111827] rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-[3px_3px_0px_#111827] flex items-center justify-center space-x-2 active:translate-x-0.5 active:translate-y-0.5 transition-all hover:bg-gray-50 min-h-[48px]"
+        >
+          <Printer className="w-4 h-4 text-[#1B3FFF]" />
+          <span>PRINT / PDF</span>
+        </button>
+      </div>
 
     </div>
   );
