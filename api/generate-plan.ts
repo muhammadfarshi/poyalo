@@ -13,25 +13,32 @@ export default async function handler(req: any, res: any) {
   try {
     const systemPrompt = `You are an expert travel planner for POYALO.
 The traveler requested: "${prompt}".
-Identify the target destination city and country, then construct a realistic 1-day itinerary with 3 to 5 distinct stops.
+Identify the destination city, country, and duration requested (e.g. "3 days in Tokyo" -> 3 days, "weekend" -> 2 days, or if unspecified default to 2 to 3 days). Maximum 5 days.
 
 Return ONLY a valid JSON object matching this schema:
 {
   "city": "Name of City",
   "country": "Name of Country",
-  "theme": "Route title (e.g. Historic Kyoto Temple Walk)",
-  "stops": [
+  "theme": "Overall Trip Title (e.g. Tokyo Culture & Tech Adventure)",
+  "totalDays": 2,
+  "days": [
     {
-      "name": "Attraction Name",
-      "category": "heritage" | "souk" | "museum" | "food" | "viewpoint",
-      "startTime": "HH:MM (24-hour format)",
-      "endTime": "HH:MM (24-hour format)",
-      "durationMinutes": 60,
-      "lat": 35.6895,
-      "lng": 139.6917,
-      "isOutdoor": true,
-      "idealForSunset": false,
-      "notes": "Short highlight or insider tip"
+      "dayNumber": 1,
+      "theme": "Day 1 Theme (e.g. Historic Temples & Street Food)",
+      "stops": [
+        {
+          "name": "Attraction Name",
+          "category": "heritage" | "souk" | "museum" | "food" | "viewpoint",
+          "startTime": "HH:MM (24-hour format)",
+          "endTime": "HH:MM (24-hour format)",
+          "durationMinutes": 60,
+          "lat": 35.6895,
+          "lng": 139.6917,
+          "isOutdoor": true,
+          "idealForSunset": false,
+          "notes": "Short highlight or insider tip"
+        }
+      ]
     }
   ]
 }

@@ -1,4 +1,4 @@
-import { ItineraryStop } from '../types/itinerary';
+import { ItineraryStop, ItineraryDay } from '../types/itinerary';
 import { ComicStory, ComicTone, EraLayer } from '../types/comic';
 
 const GEMINI_API_KEY: string = 
@@ -9,6 +9,8 @@ export interface GeneratedPlanResponse {
   city: string;
   country: string;
   theme: string;
+  totalDays: number;
+  days: ItineraryDay[];
   stops: ItineraryStop[];
 }
 
@@ -22,7 +24,45 @@ export async function generateAIPlan(userPrompt: string): Promise<GeneratedPlanR
     });
     if (res.ok) {
       const data = await res.json();
-      if (data?.stops?.length > 0) return data;
+      if (data?.days?.length > 0 || data?.stops?.length > 0) {
+        // Normalize serverless response
+        const totalDays = data.totalDays || (data.days?.length) || 1;
+        const normalizedDays: ItineraryDay[] = (data.days && data.days.length > 0) 
+          ? data.days.map((d: any, dIdx: number) => ({
+              dayNumber: d.dayNumber || dIdx + 1,
+              theme: d.theme || `Day ${dIdx + 1} Exploration`,
+              stops: (d.stops || []).map((s: any, idx: number) => ({
+                id: `ai-stop-${dIdx + 1}-${Date.now()}-${idx}`,
+                poiId: `poi-${s.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+                name: s.name,
+                category: s.category || 'heritage',
+                startTime: s.startTime || '10:00',
+                endTime: s.endTime || '11:30',
+                durationMinutes: Number(s.durationMinutes) || 75,
+                lat: Number(s.lat) || 0,
+                lng: Number(s.lng) || 0,
+                isOutdoor: Boolean(s.isOutdoor),
+                idealForSunset: Boolean(s.idealForSunset),
+                notes: s.notes || undefined
+              }))
+            }))
+          : [
+              {
+                dayNumber: 1,
+                theme: data.theme || 'Day 1 Highlights',
+                stops: data.stops || []
+              }
+            ];
+
+        return {
+          city: data.city || 'Custom Destination',
+          country: data.country || 'Worldwide',
+          theme: data.theme || 'Curated Exploration Trail',
+          totalDays: totalDays,
+          days: normalizedDays,
+          stops: normalizedDays[0]?.stops || []
+        };
+      }
     }
   } catch {
     // Fall back to direct Gemini call
@@ -31,32 +71,39 @@ export async function generateAIPlan(userPrompt: string): Promise<GeneratedPlanR
   // 2. Direct Gemini 3.1 Flash Lite API Call
   const systemPrompt = `You are a world-class travel planner for the POYALO app.
 The user wants an itinerary for: "${userPrompt}".
-Extract or determine the destination city and country, then generate a realistic 1-day itinerary with 3 to 5 distinct stops.
+Detect the destination city, country, and how many days they requested (e.g. "3 days in Tokyo" -> 3 days, "weekend in Rome" -> 2 days, or if unspecified default to 2 or 3 days). Maximum 5 days. For each day, create 3 to 4 distinct logically sequenced stops.
 
 Return ONLY a valid JSON object matching this exact schema:
 {
   "city": "Name of City",
   "country": "Name of Country",
-  "theme": "Catchy route title (e.g. Historic Kyoto Temple Walk)",
-  "stops": [
+  "theme": "Overall Trip Title (e.g. Tokyo Culture & Tech Adventure)",
+  "totalDays": 2,
+  "days": [
     {
-      "name": "Attraction Name",
-      "category": "heritage" | "souk" | "museum" | "food" | "viewpoint",
-      "startTime": "HH:MM (24h format)",
-      "endTime": "HH:MM (24h format)",
-      "durationMinutes": 60,
-      "lat": 35.6895,
-      "lng": 139.6917,
-      "isOutdoor": true,
-      "idealForSunset": false,
-      "notes": "Short highlight or insider tip"
+      "dayNumber": 1,
+      "theme": "Catchy theme for Day 1",
+      "stops": [
+        {
+          "name": "Attraction Name",
+          "category": "heritage" | "souk" | "museum" | "food" | "viewpoint",
+          "startTime": "HH:MM (24h format)",
+          "endTime": "HH:MM (24h format)",
+          "durationMinutes": 60,
+          "lat": 35.6895,
+          "lng": 139.6917,
+          "isOutdoor": true,
+          "idealForSunset": false,
+          "notes": "Short highlight or insider tip"
+        }
+      ]
     }
   ]
 }
 
 Ensure:
 - Real geographic coordinates (lat, lng) for each stop so the travel physics engine works accurately.
-- Logically sequenced times throughout the day (e.g. 09:30 to 18:30).
+- Logically sequenced times throughout each day (e.g. 09:30 to 18:30).
 - If one stop is a scenic sunset or lookout point, set "idealForSunset": true and schedule it in the late afternoon.`;
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
@@ -86,27 +133,56 @@ Ensure:
 
   const parsed = JSON.parse(textContent);
 
-  // Normalize stops to conform with ItineraryStop interface
-  const formattedStops: ItineraryStop[] = (parsed.stops || []).map((s: any, idx: number) => ({
-    id: `ai-stop-${Date.now()}-${idx}`,
-    poiId: `poi-${s.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-    name: s.name,
-    category: s.category || 'heritage',
-    startTime: s.startTime || '10:00',
-    endTime: s.endTime || '11:30',
-    durationMinutes: Number(s.durationMinutes) || 75,
-    lat: Number(s.lat) || 0,
-    lng: Number(s.lng) || 0,
-    isOutdoor: Boolean(s.isOutdoor),
-    idealForSunset: Boolean(s.idealForSunset),
-    notes: s.notes || undefined
-  }));
+  // Normalize days
+  const normalizedDays: ItineraryDay[] = (parsed.days && Array.isArray(parsed.days) && parsed.days.length > 0)
+    ? parsed.days.map((d: any, dIdx: number) => ({
+        dayNumber: d.dayNumber || dIdx + 1,
+        theme: d.theme || `Day ${dIdx + 1} Trail`,
+        stops: (d.stops || []).map((s: any, idx: number) => ({
+          id: `ai-stop-d${dIdx + 1}-${Date.now()}-${idx}`,
+          poiId: `poi-${s.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+          name: s.name,
+          category: s.category || 'heritage',
+          startTime: s.startTime || '10:00',
+          endTime: s.endTime || '11:30',
+          durationMinutes: Number(s.durationMinutes) || 75,
+          lat: Number(s.lat) || 0,
+          lng: Number(s.lng) || 0,
+          isOutdoor: Boolean(s.isOutdoor),
+          idealForSunset: Boolean(s.idealForSunset),
+          notes: s.notes || undefined
+        }))
+      }))
+    : [
+        {
+          dayNumber: 1,
+          theme: parsed.theme || 'Day 1 Highlights',
+          stops: (parsed.stops || []).map((s: any, idx: number) => ({
+            id: `ai-stop-${Date.now()}-${idx}`,
+            poiId: `poi-${s.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+            name: s.name,
+            category: s.category || 'heritage',
+            startTime: s.startTime || '10:00',
+            endTime: s.endTime || '11:30',
+            durationMinutes: Number(s.durationMinutes) || 75,
+            lat: Number(s.lat) || 0,
+            lng: Number(s.lng) || 0,
+            isOutdoor: Boolean(s.isOutdoor),
+            idealForSunset: Boolean(s.idealForSunset),
+            notes: s.notes || undefined
+          }))
+        }
+      ];
+
+  const totalDays = parsed.totalDays || normalizedDays.length;
 
   return {
     city: parsed.city || 'Custom Destination',
     country: parsed.country || 'Worldwide',
     theme: parsed.theme || 'Curated Exploration Trail',
-    stops: formattedStops
+    totalDays: totalDays,
+    days: normalizedDays,
+    stops: normalizedDays[0]?.stops || []
   };
 }
 

@@ -8,6 +8,7 @@ import { EntryCheckView } from './components/planner/EntryCheckView';
 import { BoardingPass } from './components/pass/BoardingPass';
 import { MythPointerView } from './components/myth/MythPointerView';
 import { WelcomeOnboardingModal } from './components/onboarding/WelcomeOnboardingModal';
+import { AirplaneEasterEgg } from './components/common/AirplaneEasterEgg';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('planner');
@@ -128,6 +129,9 @@ export const App: React.FC = () => {
         onClose={handleCloseWelcome}
         deferredPrompt={deferredInstallPrompt}
       />
+
+      {/* Supersonic Comic Airplane Easter Egg (Phone Shake & Header Trigger) */}
+      <AirplaneEasterEgg />
 
     </div>
   );

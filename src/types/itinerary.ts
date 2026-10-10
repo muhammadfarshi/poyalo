@@ -32,6 +32,12 @@ export interface ItineraryStop {
   transitSpeedKmHToNext?: number;
 }
 
+export interface ItineraryDay {
+  dayNumber: number;
+  theme: string;
+  stops: ItineraryStop[];
+}
+
 export type FlagSeverity = 'error' | 'warning' | 'info';
 
 export type FlagType = 

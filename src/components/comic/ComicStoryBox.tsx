@@ -1,60 +1,243 @@
-import React, { useState, useEffect } from 'react';
-import { Volume2, VolumeX, Sparkles, Download, Check, History, BookOpen, Send, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Volume2, 
+  VolumeX, 
+  Sparkles, 
+  Download, 
+  Check, 
+  History, 
+  BookOpen, 
+  Send, 
+  RotateCcw,
+  Play,
+  Square
+} from 'lucide-react';
 import { ComicStory, ComicTone, EraLayer } from '../../types/comic';
 import { getComicForSelection } from '../../data/mockComics';
 import { generateAIComicStory } from '../../services/aiService';
 import { ComicPanelItem } from './ComicPanelItem';
 
+// Synthesize playful comic sound effects using Web Audio API (100% offline)
+function playComicSynth(type: 'pop' | 'chime' | 'whoosh' | 'splash' = 'pop') {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    if (type === 'chime') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now); // C5
+      osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+      osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc.start(now);
+      osc.stop(now + 0.45);
+    } else if (type === 'whoosh') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(750, now + 0.12);
+      osc.frequency.exponentialRampToValueAtTime(100, now + 0.28);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    } else if (type === 'splash') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.linearRampToValueAtTime(140, now + 0.18);
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } else {
+      // Pop
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(450, now);
+      osc.frequency.exponentialRampToValueAtTime(120, now + 0.1);
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    }
+  } catch {
+    // Audio context may be restricted before user gesture
+  }
+}
+
 export const ComicStoryBox: React.FC = () => {
   const [tone, setTone] = useState<ComicTone>('roast');
   const [era, setEra] = useState<EraLayer>('1800s');
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
-  const [activePanelIndex, setActivePanelIndex] = useState<number>(0);
+  const [activePanelIndex, setActivePanelIndex] = useState<number>(-1);
   const [isCachedOffline, setIsCachedOffline] = useState<boolean>(true);
   const [cacheToast, setCacheToast] = useState<string>('');
   const [customStoryPrompt, setCustomStoryPrompt] = useState<string>('');
+  const [lastCustomPrompt, setLastCustomPrompt] = useState<string>('');
   const [isGeneratingStory, setIsGeneratingStory] = useState<boolean>(false);
   const [aiCustomStory, setAiCustomStory] = useState<ComicStory | null>(null);
 
+  // References for Web Speech cancellation
+  const isPlayingRef = useRef<boolean>(false);
+  const speechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const activeStory = aiCustomStory || getComicForSelection(tone, era);
 
-  // Audio playback simulation sequence (highlights panels in rhythm)
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (isPlayingAudio) {
-      timer = setInterval(() => {
-        setActivePanelIndex(prev => {
-          if (prev >= activeStory.panels.length - 1) {
-            setIsPlayingAudio(false);
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 3500);
-    } else {
-      setActivePanelIndex(-1);
+  // Stop narration helper
+  const stopNarration = () => {
+    isPlayingRef.current = false;
+    setIsPlayingAudio(false);
+    setActivePanelIndex(-1);
+    if (speechTimerRef.current) {
+      clearTimeout(speechTimerRef.current);
+      speechTimerRef.current = null;
     }
-    return () => clearInterval(timer);
-  }, [isPlayingAudio, activeStory.panels.length]);
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+  };
+
+  // Web Speech API Voice Narration Routine
+  const startNarration = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      setCacheToast('⚠️ Voice narration is not supported in this browser.');
+      setTimeout(() => setCacheToast(''), 3000);
+      return;
+    }
+
+    stopNarration();
+    isPlayingRef.current = true;
+    setIsPlayingAudio(true);
+    playComicSynth('chime');
+
+    const panels = activeStory.panels;
+    let currentPanelIdx = 0;
+
+    const narratePanel = (panelIdx: number) => {
+      if (!isPlayingRef.current || panelIdx >= panels.length) {
+        stopNarration();
+        return;
+      }
+
+      setActivePanelIndex(panelIdx);
+      const currentPanel = panels[panelIdx];
+
+      // Play sound effect when panel opens
+      if (currentPanel.soundEffect) {
+        playComicSynth('whoosh');
+      } else {
+        playComicSynth('pop');
+      }
+
+      // Collect narration items for this panel
+      const utterancesQueue: SpeechSynthesisUtterance[] = [];
+
+      // 1. Narrative caption
+      if (currentPanel.narrativeCaption) {
+        const captionUtt = new SpeechSynthesisUtterance(currentPanel.narrativeCaption);
+        captionUtt.rate = tone === 'professor' ? 0.92 : 1.0;
+        captionUtt.pitch = tone === 'kid' ? 1.15 : 0.98;
+        utterancesQueue.push(captionUtt);
+      }
+
+      // 2. Speech bubbles
+      currentPanel.speechBubbles.forEach((bubble) => {
+        const textToSay = `${bubble.speaker}: "${bubble.text}"`;
+        const bubbleUtt = new SpeechSynthesisUtterance(textToSay);
+
+        // Modulate pitch and speed based on character bubble type & comic tone
+        if (bubble.type === 'shout') {
+          bubbleUtt.pitch = tone === 'kid' ? 1.35 : 1.25;
+          bubbleUtt.rate = 1.1;
+        } else if (bubble.type === 'thought') {
+          bubbleUtt.pitch = 0.92;
+          bubbleUtt.rate = 0.88;
+        } else {
+          bubbleUtt.pitch = tone === 'kid' ? 1.2 : 1.05;
+          bubbleUtt.rate = tone === 'roast' ? 1.05 : 0.98;
+        }
+        utterancesQueue.push(bubbleUtt);
+      });
+
+      // Play queue sequentially
+      let itemIdx = 0;
+      const playNextItem = () => {
+        if (!isPlayingRef.current) return;
+
+        if (itemIdx >= utterancesQueue.length) {
+          // Finished this panel, brief comic pause before next panel
+          speechTimerRef.current = setTimeout(() => {
+            currentPanelIdx++;
+            narratePanel(currentPanelIdx);
+          }, 900);
+          return;
+        }
+
+        const currentUtt = utterancesQueue[itemIdx];
+        currentUtt.onend = () => {
+          itemIdx++;
+          playNextItem();
+        };
+
+        currentUtt.onerror = () => {
+          // If speech synthesis has an error or cancels, advance cleanly
+          itemIdx++;
+          playNextItem();
+        };
+
+        window.speechSynthesis.speak(currentUtt);
+      };
+
+      playNextItem();
+    };
+
+    narratePanel(0);
+  };
+
+  const handleToggleAudio = () => {
+    if (isPlayingAudio) {
+      stopNarration();
+    } else {
+      startNarration();
+    }
+  };
+
+  // Cleanup speech on unmount or story switch
+  useEffect(() => {
+    return () => {
+      stopNarration();
+    };
+  }, []);
 
   const handleDownloadOfflinePack = () => {
     setIsCachedOffline(true);
-    setCacheToast('Story Pack Cached in IndexedDB for 100% Airplane Mode!');
-    setTimeout(() => setCacheToast(''), 3000);
+    playComicSynth('pop');
+    setCacheToast('📦 Comic Pack & Audio Voice Script Cached for Offline Travel!');
+    setTimeout(() => setCacheToast(''), 3500);
   };
 
-  const handleGenerateCustomStory = async (e: React.FormEvent, customPrompt?: string) => {
+  const handleGenerateCustomStory = async (e?: React.FormEvent, customPrompt?: string) => {
     if (e && e.preventDefault) e.preventDefault();
     const promptToUse = customPrompt || customStoryPrompt;
     if (!promptToUse.trim()) return;
 
+    stopNarration();
     setIsGeneratingStory(true);
-    setCacheToast('🎨 Gemini drafting custom 3-panel comic lore...');
+    setLastCustomPrompt(promptToUse);
+    setCacheToast('🎨 Gemini drafting worldwide 3-panel graphic novel...');
 
     try {
       const generated = await generateAIComicStory(promptToUse, tone, era);
       setAiCustomStory(generated);
-      setCacheToast(`✨ Comic created for ${generated.cityName}!`);
+      playComicSynth('chime');
+      setCacheToast(`✨ Comic created for ${generated.placeName || generated.cityName}!`);
       setCustomStoryPrompt('');
     } catch (err: any) {
       console.warn('Comic generation failed:', err);
@@ -62,6 +245,47 @@ export const ComicStoryBox: React.FC = () => {
     } finally {
       setIsGeneratingStory(false);
       setTimeout(() => setCacheToast(''), 4000);
+    }
+  };
+
+  // Re-generate custom AI story if user changes tone or era while custom story is active
+  const handleToneChange = async (newTone: ComicTone) => {
+    stopNarration();
+    setTone(newTone);
+    playComicSynth('pop');
+
+    if (aiCustomStory && lastCustomPrompt) {
+      setIsGeneratingStory(true);
+      setCacheToast(`🎭 Redrawing custom story in ${newTone.toUpperCase()} tone...`);
+      try {
+        const regenerated = await generateAIComicStory(lastCustomPrompt, newTone, era);
+        setAiCustomStory(regenerated);
+      } catch {
+        // Fall back gracefully
+      } finally {
+        setIsGeneratingStory(false);
+        setTimeout(() => setCacheToast(''), 3000);
+      }
+    }
+  };
+
+  const handleEraChange = async (newEra: EraLayer) => {
+    stopNarration();
+    setEra(newEra);
+    playComicSynth('pop');
+
+    if (aiCustomStory && lastCustomPrompt) {
+      setIsGeneratingStory(true);
+      setCacheToast(`⏳ Shifting era machine to ${newEra.toUpperCase()}...`);
+      try {
+        const regenerated = await generateAIComicStory(lastCustomPrompt, tone, newEra);
+        setAiCustomStory(regenerated);
+      } catch {
+        // Fall back gracefully
+      } finally {
+        setIsGeneratingStory(false);
+        setTimeout(() => setCacheToast(''), 3000);
+      }
     }
   };
 
@@ -87,17 +311,20 @@ export const ComicStoryBox: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
               <span className="bg-[#FF5722] text-white px-2.5 py-0.5 rounded font-mono font-black text-xs uppercase border border-[#111827]">
                 THE HEART • COMIC LORE
               </span>
-              <span className="text-xs font-mono font-bold text-gray-500 uppercase">
+              <span className="text-xs font-mono font-bold text-gray-600 uppercase">
                 {activeStory.placeName} • {activeStory.cityName}
               </span>
               {aiCustomStory && (
                 <button
-                  onClick={() => setAiCustomStory(null)}
-                  className="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 border border-[#111827] rounded text-[10px] font-mono font-bold text-gray-700 flex items-center space-x-1"
+                  onClick={() => {
+                    stopNarration();
+                    setAiCustomStory(null);
+                  }}
+                  className="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 border border-[#111827] rounded text-[10px] font-mono font-bold text-gray-700 flex items-center space-x-1 shadow-sm active:translate-x-0.5"
                 >
                   <RotateCcw className="w-2.5 h-2.5" />
                   <span>RESET TO SAMPLE</span>
@@ -115,20 +342,29 @@ export const ComicStoryBox: React.FC = () => {
           {/* Audio narration & Cache controls */}
           <div className="flex items-center space-x-2 self-start sm:self-center">
             <button
-              onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-              className={`px-3 py-2 rounded-xl border-2 border-[#111827] font-mono font-bold text-xs shadow-[2px_2px_0px_#111827] flex items-center space-x-1.5 active:translate-x-0.5 active:translate-y-0.5 ${
+              onClick={handleToggleAudio}
+              className={`px-3.5 py-2.5 rounded-xl border-2 border-[#111827] font-mono font-black text-xs shadow-[2.5px_2.5px_0px_#111827] flex items-center space-x-2 active:translate-x-0.5 active:translate-y-0.5 transition-all ${
                 isPlayingAudio 
                   ? 'bg-[#10B981] text-white animate-pulse' 
-                  : 'bg-white hover:bg-gray-50 text-[#111827]'
+                  : 'bg-white hover:bg-amber-50 text-[#111827]'
               }`}
             >
-              {isPlayingAudio ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              <span>{isPlayingAudio ? 'NARRATING...' : 'AUDIO STORY'}</span>
+              {isPlayingAudio ? (
+                <>
+                  <Square className="w-4 h-4 fill-white" />
+                  <span>STOP NARRATION</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-4 h-4 text-[#1B3FFF]" />
+                  <span>NARRATE COMIC</span>
+                </>
+              )}
             </button>
 
             <button
               onClick={handleDownloadOfflinePack}
-              className="px-3 py-2 rounded-xl border-2 border-[#111827] font-mono font-bold text-xs bg-[#FBBF24] text-[#111827] shadow-[2px_2px_0px_#111827] flex items-center space-x-1 active:translate-x-0.5 active:translate-y-0.5"
+              className="px-3.5 py-2.5 rounded-xl border-2 border-[#111827] font-mono font-black text-xs bg-[#FBBF24] hover:bg-amber-300 text-[#111827] shadow-[2.5px_2.5px_0px_#111827] flex items-center space-x-1.5 active:translate-x-0.5 active:translate-y-0.5"
             >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">OFFLINE PACK</span>
@@ -143,7 +379,7 @@ export const ComicStoryBox: React.FC = () => {
             value={customStoryPrompt}
             onChange={(e) => setCustomStoryPrompt(e.target.value)}
             placeholder="Generate comic lore for ANY place worldwide (e.g. 'Kyoto Samurai Era', 'Colosseum Gladiators', 'Jazz Age Paris')..."
-            className="flex-1 px-3.5 py-2.5 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#FF5722] shadow-inner"
+            className="flex-1 px-3.5 py-2.5 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#FF5722] shadow-inner font-bold"
           />
           <button
             type="submit"
@@ -178,7 +414,7 @@ export const ComicStoryBox: React.FC = () => {
 
         {/* Cache Toast notification */}
         {cacheToast && (
-          <div className="mt-3 p-2 bg-emerald-100 border-2 border-[#111827] rounded-lg text-emerald-900 text-xs font-mono font-bold flex items-center space-x-2 animate-bounce">
+          <div className="mt-3 p-2.5 bg-emerald-100 border-2 border-[#111827] rounded-xl text-emerald-900 text-xs font-mono font-bold flex items-center space-x-2 animate-fade-in shadow-[2px_2px_0px_#111827]">
             <Check className="w-4 h-4 text-emerald-700" />
             <span>{cacheToast}</span>
           </div>
@@ -204,7 +440,7 @@ export const ComicStoryBox: React.FC = () => {
             {tones.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setTone(t.id)}
+                onClick={() => handleToneChange(t.id)}
                 className={`py-2 px-2 rounded-xl border-2 border-[#111827] text-xs font-mono font-black flex items-center justify-center space-x-1 transition-all ${
                   tone === t.id
                     ? 'bg-[#1B3FFF] text-white shadow-[2px_2px_0px_#111827] -translate-y-0.5'
@@ -234,7 +470,7 @@ export const ComicStoryBox: React.FC = () => {
             {eras.map((e) => (
               <button
                 key={e.id}
-                onClick={() => setEra(e.id)}
+                onClick={() => handleEraChange(e.id)}
                 className={`py-2 px-2 rounded-xl border-2 border-[#111827] text-xs font-mono font-black flex flex-col items-center justify-center transition-all ${
                   era === e.id
                     ? 'bg-[#FF5722] text-white shadow-[2px_2px_0px_#111827] -translate-y-0.5'
@@ -255,11 +491,16 @@ export const ComicStoryBox: React.FC = () => {
       {/* The Responsive Comic Strip Panels */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-mono font-bold text-gray-600 uppercase">
-            3-PANEL GRAPHIC NOVEL STRIP • {activeStory.panels.length} PANELS
+          <span className="text-xs font-mono font-bold text-gray-600 uppercase flex items-center space-x-1.5">
+            <span>3-PANEL GRAPHIC NOVEL STRIP • {activeStory.panels.length} PANELS</span>
+            {isPlayingAudio && (
+              <span className="text-emerald-600 font-black animate-pulse">
+                • [NARRATING PANEL {activePanelIndex + 1}]
+              </span>
+            )}
           </span>
           <span className="text-[11px] font-mono text-[#1B3FFF] font-bold">
-            100% OFFLINE READY
+            100% OFFLINE SPEECH READY
           </span>
         </div>
 

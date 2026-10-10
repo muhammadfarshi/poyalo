@@ -9,9 +9,12 @@ import {
   HelpCircle, 
   MapPin, 
   Compass,
-  Plus
+  Plus,
+  Clock,
+  Layers,
+  Check
 } from 'lucide-react';
-import { ItineraryStop } from '../../types/itinerary';
+import { ItineraryStop, ItineraryDay } from '../../types/itinerary';
 import { generateAIPlan } from '../../services/aiService';
 import { StopCard } from './StopCard';
 
@@ -21,25 +24,31 @@ interface ItineraryPlannerProps {
 }
 
 const INSPIRATION_CHIPS = [
-  { label: '🗼 Tokyo Temples', prompt: '1 day cultural temple walk in Tokyo with food markets' },
-  { label: '🥐 Paris Highlights', prompt: 'Walking tour of Paris historic viewpoints and cafes' },
-  { label: '🏛️ Ancient Rome', prompt: '1 day exploration of Ancient Rome monuments and viewpoints' },
-  { label: '🍜 Bangkok Street Food', prompt: 'Historic temples and famous street food markets in Bangkok' },
-  { label: '🇬🇧 London Royalty', prompt: '1 day historic walk of London landmarks, parks and museums' },
-  { label: '🌴 Dubai Heritage', prompt: '1 day heritage tour across Dubai Creek and Al Fahidi historical district' }
+  { label: '🗼 3 Days in Tokyo', prompt: '3 days cultural and modern exploration of Tokyo with food markets' },
+  { label: '🥐 Weekend in Paris (2 Days)', prompt: '2 days historic walking tour of Paris art, cafes, and Eiffel views' },
+  { label: '🏛️ 3 Days in Rome', prompt: '3 days exploring Ancient Rome, Vatican City, and Trastevere food' },
+  { label: '🍜 2 Days in Bangkok', prompt: '2 days historic temples, river cruise, and night markets in Bangkok' },
+  { label: '🇬🇧 2 Days in London', prompt: '2 days London royal landmarks, museums, and West End' },
+  { label: '🌴 3 Days in Dubai', prompt: '3 days Dubai heritage creek, modern downtown spires, and desert sunset' }
 ];
 
 export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
   onOpenMyths,
   activeCity = 'Tokyo'
 }) => {
-  const [stops, setStops] = useState<ItineraryStop[]>([]);
+  const [days, setDays] = useState<ItineraryDay[]>([]);
+  const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
   const [userPrompt, setUserPrompt] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [planToast, setPlanToast] = useState<string | null>(null);
   const [currentCity, setCurrentCity] = useState<string>(activeCity || 'Tokyo');
-  const [routeTitle, setRouteTitle] = useState<string>('');
-  const [routeSubtitle, setRouteSubtitle] = useState<string>('');
+  const [tripTheme, setTripTheme] = useState<string>('');
+  const [countryName, setCountryName] = useState<string>('Worldwide');
+
+  // Currently displayed day
+  const activeDay = days[activeDayIndex] || days[0] || null;
+  const currentStops = activeDay ? activeDay.stops : [];
+  const totalStopsCount = days.reduce((acc, d) => acc + (d.stops?.length || 0), 0);
 
   const handleGenerateFromPrompt = async (e?: React.FormEvent, customPrompt?: string) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -47,90 +56,205 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
     if (!promptToUse.trim()) return;
 
     setIsGenerating(true);
-    setPlanToast('🤖 Gemini AI analyzing destination & drafting itinerary...');
+    setPlanToast('🤖 Gemini AI analyzing destination & drafting multi-day itinerary...');
 
     try {
       const plan = await generateAIPlan(promptToUse);
-      if (plan && plan.stops && plan.stops.length > 0) {
-        setStops(plan.stops);
+      if (plan && plan.days && plan.days.length > 0) {
+        setDays(plan.days);
+        setActiveDayIndex(0);
         const cityClean = plan.city || 'Custom Destination';
         setCurrentCity(cityClean);
-        setRouteTitle(`DAY 1: ${plan.theme.toUpperCase()}`);
-        setRouteSubtitle(`${cityClean.toUpperCase()}, ${plan.country.toUpperCase()}`);
-        setPlanToast(`✨ Generated ${plan.stops.length} stops for ${cityClean}!`);
+        setCountryName(plan.country || 'Worldwide');
+        setTripTheme(plan.theme || `${cityClean} Exploration Trail`);
+        
+        const totalDays = plan.days.length;
+        setPlanToast(`✨ Generated ${totalDays}-day plan with ${totalStopsCount || plan.stops.length} stops for ${cityClean}!`);
         setUserPrompt('');
         try {
-          confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
+          confetti({ particleCount: 45, spread: 55, origin: { y: 0.6 } });
         } catch {}
       } else {
-        throw new Error('No stops returned');
+        throw new Error('No days returned');
       }
     } catch (err: any) {
-      console.warn('AI generation error, creating responsive schedule:', err);
+      console.warn('AI generation error, creating multi-day schedule:', err);
       // Fallback: extract destination name from prompt
       const words = promptToUse.split(' ');
-      const guessedCity = words.find(w => w.length > 3 && !['trip', 'tour', 'walk', 'with', 'from', 'plan'].includes(w.toLowerCase())) || 'Destination';
-      setCurrentCity(guessedCity);
-      setRouteTitle(`DAY 1: ${guessedCity.toUpperCase()} DISCOVERY TRAIL`);
-      setRouteSubtitle(`${guessedCity.toUpperCase()} • HIGHLIGHTS`);
+      const guessedCity = words.find(w => w.length > 3 && !['trip', 'tour', 'walk', 'with', 'from', 'plan', 'days'].includes(w.toLowerCase())) || 'Destination';
       
-      const fallbackStops: ItineraryStop[] = [
+      const fallbackDays: ItineraryDay[] = [
         {
-          id: `stop-${Date.now()}-1`,
-          poiId: 'poi-1',
-          name: `${guessedCity} Historic Center & Old Town`,
-          category: 'heritage',
-          startTime: '09:30',
-          endTime: '11:00',
-          durationMinutes: 90,
-          lat: 35.6895,
-          lng: 139.6917,
-          isOutdoor: true,
-          notes: 'Authentic local walking tour to start the morning'
+          dayNumber: 1,
+          theme: 'Historic Center & Heritage Sights',
+          stops: [
+            {
+              id: `stop-${Date.now()}-1-1`,
+              poiId: 'poi-1',
+              name: `${guessedCity} Old Town & Heritage Gateway`,
+              category: 'heritage',
+              startTime: '09:30',
+              endTime: '11:00',
+              durationMinutes: 90,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: true,
+              notes: 'Morning walking tour through ancient preserved architecture'
+            },
+            {
+              id: `stop-${Date.now()}-1-2`,
+              poiId: 'poi-2',
+              name: `${guessedCity} Central Artisan Market`,
+              category: 'food',
+              startTime: '11:30',
+              endTime: '13:00',
+              durationMinutes: 90,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: false,
+              notes: 'Sample verified authentic local lunch dishes'
+            },
+            {
+              id: `stop-${Date.now()}-1-3`,
+              poiId: 'poi-3',
+              name: `${guessedCity} National Cultural Museum`,
+              category: 'museum',
+              startTime: '14:00',
+              endTime: '16:00',
+              durationMinutes: 120,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: false,
+              notes: 'Historical masterpieces and archaeological treasures'
+            },
+            {
+              id: `stop-${Date.now()}-1-4`,
+              poiId: 'poi-4',
+              name: `${guessedCity} Panoramic Skyline Viewpoint`,
+              category: 'viewpoint',
+              startTime: '17:30',
+              endTime: '19:00',
+              durationMinutes: 90,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: true,
+              idealForSunset: true,
+              notes: 'Golden hour sunset over the city skyline'
+            }
+          ]
         },
         {
-          id: `stop-${Date.now()}-2`,
-          poiId: 'poi-2',
-          name: `${guessedCity} Artisan Food Market`,
-          category: 'food',
-          startTime: '11:30',
-          endTime: '13:00',
-          durationMinutes: 90,
-          lat: 35.6895,
-          lng: 139.6917,
-          isOutdoor: false,
-          notes: 'Try traditional local lunch dishes from verified street stalls'
+          dayNumber: 2,
+          theme: 'Art Districts, Waterfront & Local Flavors',
+          stops: [
+            {
+              id: `stop-${Date.now()}-2-1`,
+              poiId: 'poi-5',
+              name: `${guessedCity} Botanical Gardens & Royal Pavilions`,
+              category: 'heritage',
+              startTime: '10:00',
+              endTime: '11:45',
+              durationMinutes: 105,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: true,
+              notes: 'Peaceful morning walk through historic flora and pavilions'
+            },
+            {
+              id: `stop-${Date.now()}-2-2`,
+              poiId: 'poi-6',
+              name: `${guessedCity} Riverside Promenade & Cafe Quarter`,
+              category: 'food',
+              startTime: '12:15',
+              endTime: '14:00',
+              durationMinutes: 105,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: true,
+              notes: 'Al fresco riverside lunch and craft coffee'
+            },
+            {
+              id: `stop-${Date.now()}-2-3`,
+              poiId: 'poi-7',
+              name: `${guessedCity} Contemporary Arts Hub`,
+              category: 'museum',
+              startTime: '14:30',
+              endTime: '16:30',
+              durationMinutes: 120,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: false,
+              notes: 'Cutting-edge modern galleries and interactive exhibits'
+            },
+            {
+              id: `stop-${Date.now()}-2-4`,
+              poiId: 'poi-8',
+              name: `${guessedCity} Night Street Food Bazaar`,
+              category: 'food',
+              startTime: '18:00',
+              endTime: '20:00',
+              durationMinutes: 120,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: true,
+              notes: 'Bustling night market with local street delicacies'
+            }
+          ]
         },
         {
-          id: `stop-${Date.now()}-3`,
-          poiId: 'poi-3',
-          name: `${guessedCity} Landmark Cultural Museum`,
-          category: 'museum',
-          startTime: '14:00',
-          endTime: '16:00',
-          durationMinutes: 120,
-          lat: 35.6895,
-          lng: 139.6917,
-          isOutdoor: false,
-          notes: 'Ancient artifacts and historical archives'
-        },
-        {
-          id: `stop-${Date.now()}-4`,
-          poiId: 'poi-4',
-          name: `${guessedCity} Skyline Sunset Viewpoint`,
-          category: 'viewpoint',
-          startTime: '17:30',
-          endTime: '19:00',
-          durationMinutes: 90,
-          lat: 35.6895,
-          lng: 139.6917,
-          isOutdoor: true,
-          idealForSunset: true,
-          notes: 'Panoramic golden hour views across the city'
+          dayNumber: 3,
+          theme: 'Hidden Temples & Scenic Heights',
+          stops: [
+            {
+              id: `stop-${Date.now()}-3-1`,
+              poiId: 'poi-9',
+              name: `${guessedCity} Hilltop Sanctuary & Forest Trail`,
+              category: 'heritage',
+              startTime: '09:00',
+              endTime: '11:00',
+              durationMinutes: 120,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: true,
+              notes: 'Scenic trail leading to secluded historical shrine'
+            },
+            {
+              id: `stop-${Date.now()}-3-2`,
+              poiId: 'poi-10',
+              name: `${guessedCity} Historic Souk & Crafts Workshop`,
+              category: 'souk',
+              startTime: '11:30',
+              endTime: '13:30',
+              durationMinutes: 120,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: false,
+              notes: 'Handmade local ceramics, textiles and spices'
+            },
+            {
+              id: `stop-${Date.now()}-3-3`,
+              poiId: 'poi-11',
+              name: `${guessedCity} Farewell Sunset Lookout`,
+              category: 'viewpoint',
+              startTime: '17:30',
+              endTime: '19:15',
+              durationMinutes: 105,
+              lat: 35.6895,
+              lng: 139.6917,
+              isOutdoor: true,
+              idealForSunset: true,
+              notes: 'Final evening celebration overlooking illuminated monuments'
+            }
+          ]
         }
       ];
-      setStops(fallbackStops);
-      setPlanToast(`✨ Created curated 4-stop itinerary for ${guessedCity}!`);
+
+      setCurrentCity(guessedCity);
+      setCountryName('Worldwide');
+      setTripTheme(`${guessedCity} Grand Discovery Trail`);
+      setDays(fallbackDays);
+      setActiveDayIndex(0);
+      setPlanToast(`✨ Created curated 3-day itinerary for ${guessedCity}!`);
       setUserPrompt('');
     } finally {
       setIsGenerating(false);
@@ -139,9 +263,50 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
   };
 
   const handleResetTrip = () => {
-    setStops([]);
-    setRouteTitle('');
-    setRouteSubtitle('');
+    setDays([]);
+    setActiveDayIndex(0);
+    setTripTheme('');
+  };
+
+  const handleAddDay = () => {
+    const newDayNum = days.length + 1;
+    const newDay: ItineraryDay = {
+      dayNumber: newDayNum,
+      theme: `Day ${newDayNum} Hidden Treasures`,
+      stops: [
+        {
+          id: `stop-${Date.now()}-new`,
+          poiId: `poi-new-${Date.now()}`,
+          name: `${currentCity} Neighborhood Exploration`,
+          category: 'heritage',
+          startTime: '10:00',
+          endTime: '12:00',
+          durationMinutes: 120,
+          lat: 35.6895,
+          lng: 139.6917,
+          isOutdoor: true,
+          notes: 'Wander off-the-beaten-path streets and local cafes'
+        },
+        {
+          id: `stop-${Date.now()}-new-2`,
+          poiId: `poi-new-${Date.now()}-2`,
+          name: `${currentCity} Sunset Pier & Lookout`,
+          category: 'viewpoint',
+          startTime: '17:30',
+          endTime: '19:00',
+          durationMinutes: 90,
+          lat: 35.6895,
+          lng: 139.6917,
+          isOutdoor: true,
+          idealForSunset: true,
+          notes: 'Golden hour scenic viewpoint'
+        }
+      ]
+    };
+    setDays([...days, newDay]);
+    setActiveDayIndex(days.length); // Switch to newly created day
+    setPlanToast(`✨ Added Day ${newDayNum} to your itinerary!`);
+    setTimeout(() => setPlanToast(null), 3000);
   };
 
   return (
@@ -153,7 +318,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <span className="bg-[#1B3FFF] text-white px-2.5 py-0.5 rounded font-mono font-black text-xs uppercase border border-[#111827]">
-                POYALO • SMART TRIP GENERATOR
+                POYALO • MULTI-DAY TRIP GENERATOR
               </span>
               <span className="text-xs font-mono font-bold text-gray-500">
                 Powered by Gemini AI
@@ -163,12 +328,12 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
               Where Are You Traveling?
             </h1>
             <p className="text-xs sm:text-sm font-mono text-gray-700 mt-1 max-w-2xl">
-              Enter any city or travel idea worldwide. We generate realistic schedules with transit timing, 
-              golden hour sunset points, and cultural myth checks.
+              Enter any worldwide trip (e.g. "3 days in Tokyo", "weekend in Paris", "4 days in Rome"). We generate 
+              multi-day sequenced schedules with transit timing, sunset viewpoints, and local myth checks.
             </p>
           </div>
 
-          {stops.length > 0 && (
+          {days.length > 0 && (
             <button
               onClick={handleResetTrip}
               className="self-start sm:self-center px-3 py-1.5 bg-[#FDFBF7] hover:bg-gray-100 border-2 border-[#111827] rounded-xl text-xs font-mono font-black shadow-[2px_2px_0px_#111827] active:translate-x-0.5 active:translate-y-0.5 flex items-center space-x-1"
@@ -187,7 +352,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
               type="text"
               value={userPrompt}
               onChange={(e) => setUserPrompt(e.target.value)}
-              placeholder="Ask for ANY trip worldwide (e.g. '1 day in Tokyo', 'Paris highlights', 'Rome historic sights')..."
+              placeholder="Ask for ANY trip worldwide (e.g. '3 days in Tokyo', 'Weekend in Paris', '4 days in Rome')..."
               className="w-full pl-10 pr-3.5 py-3 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs font-bold text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1B3FFF] shadow-inner"
             />
           </div>
@@ -236,8 +401,8 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
         )}
       </div>
 
-      {/* STATE A: NO STOPS YET (WELCOME HERO STATE) */}
-      {stops.length === 0 && !isGenerating && (
+      {/* STATE A: NO TRIPS YET (WELCOME HERO STATE) */}
+      {days.length === 0 && !isGenerating && (
         <div className="bg-white border-[2.5px] border-[#111827] rounded-2xl p-8 text-center space-y-4 shadow-[4px_4px_0px_#111827]">
           <div className="w-16 h-16 mx-auto bg-[#FEF3C7] border-2 border-[#111827] rounded-2xl flex items-center justify-center text-3xl shadow-[3px_3px_0px_#111827]">
             ✈️
@@ -248,7 +413,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
             </h3>
             <p className="text-xs font-mono text-gray-600 leading-relaxed">
               Type any destination above or tap one of the inspiration cities (Tokyo, Paris, Rome, Bangkok) 
-              to generate a personalized day plan with real coordinates, sunset timings, and local myth checks.
+              to generate a multi-day plan with real coordinates, sunset timings, and local myth checks.
             </p>
           </div>
 
@@ -269,25 +434,91 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
         </div>
       )}
 
-      {/* STATE B: ITINERARY GENERATED (ANIMATED PLEASANT DISPLAY) */}
-      {stops.length > 0 && (
+      {/* STATE B: MULTI-DAY ITINERARY GENERATED */}
+      {days.length > 0 && (
         <div className="space-y-4 animate-in fade-in duration-500">
           
-          {/* Timeline Title & Subtitle */}
+          {/* Trip Header Banner */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
             <div>
               <span className="text-[10px] font-mono font-black text-gray-500 uppercase tracking-widest block">
-                ACTIVE GENERATED TRIP
+                ACTIVE GENERATED TRIP • {days.length} DAYS TOTAL
               </span>
-              <h2 className="font-display font-black text-xl text-[#111827] flex items-center space-x-2">
-                <span>📅</span>
-                <span>{routeTitle}</span>
+              <h2 className="font-display font-black text-2xl text-[#111827] flex items-center space-x-2">
+                <span>🗺️</span>
+                <span>{tripTheme.toUpperCase()}</span>
               </h2>
             </div>
-            <span className="text-xs font-mono font-black bg-[#FBBF24] text-[#111827] px-2.5 py-1 rounded-lg border border-[#111827] shadow-[2px_2px_0px_#111827] self-start sm:self-center">
-              {stops.length} STOPS • {routeSubtitle}
+            <span className="text-xs font-mono font-black bg-[#FBBF24] text-[#111827] px-3 py-1.5 rounded-lg border border-[#111827] shadow-[2px_2px_0px_#111827] self-start sm:self-center">
+              {totalStopsCount} TOTAL STOPS • {currentCity.toUpperCase()}, {countryName.toUpperCase()}
             </span>
           </div>
+
+          {/* Neo-Brutalist Multi-Day Tab Switcher */}
+          <div className="bg-[#FFFFFF] border-2 border-[#111827] rounded-2xl p-2.5 shadow-[3px_3px_0px_#111827]">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[11px] font-mono font-black text-[#111827] flex items-center space-x-1">
+                <Calendar className="w-3.5 h-3.5 text-[#1B3FFF]" />
+                <span>SELECT TRIP DAY:</span>
+              </span>
+              <span className="text-[10px] font-mono text-gray-500 font-bold">
+                Viewing Day {activeDayIndex + 1} of {days.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+              {days.map((day, idx) => {
+                const isSelected = activeDayIndex === idx;
+                return (
+                  <button
+                    key={day.dayNumber || idx}
+                    onClick={() => setActiveDayIndex(idx)}
+                    className={`px-3.5 py-2 rounded-xl border-2 border-[#111827] font-mono font-black text-xs uppercase flex items-center space-x-1.5 transition-all whitespace-nowrap min-h-[40px] ${
+                      isSelected
+                        ? 'bg-[#1B3FFF] text-white shadow-[3px_3px_0px_#111827] -translate-y-0.5'
+                        : 'bg-[#FDFBF7] text-gray-700 hover:bg-gray-100 shadow-[1.5px_1.5px_0px_#111827]'
+                    }`}
+                  >
+                    <span>📅</span>
+                    <span>DAY 0{day.dayNumber || idx + 1}</span>
+                    <span className={`text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                      isSelected 
+                        ? 'bg-white text-[#1B3FFF] border-[#111827]' 
+                        : 'bg-gray-200 text-gray-800 border-gray-400'
+                    }`}>
+                      {day.stops?.length || 0} stops
+                    </span>
+                  </button>
+                );
+              })}
+
+              {/* Add Extra Day Button */}
+              <button
+                onClick={handleAddDay}
+                className="px-3.5 py-2 rounded-xl border-2 border-dashed border-[#111827] font-mono font-black text-xs bg-[#FEF3C7] hover:bg-amber-200 text-[#111827] flex items-center space-x-1 whitespace-nowrap active:translate-x-0.5 shadow-[1.5px_1.5px_0px_#111827] min-h-[40px]"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>ADD DAY {days.length + 1}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Active Day Theme Sub-banner */}
+          {activeDay && (
+            <div className="bg-[#EFF6FF] border-2 border-[#111827] rounded-xl p-3 shadow-[2px_2px_0px_#111827] flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono font-black text-[#1B3FFF] uppercase tracking-wider block">
+                  DAY {activeDay.dayNumber} ITINERARY TRAIL
+                </span>
+                <h3 className="font-display font-black text-base text-[#111827]">
+                  {activeDay.theme}
+                </h3>
+              </div>
+              <span className="text-xs font-mono font-bold text-gray-700 bg-white px-2.5 py-1 rounded-lg border border-[#111827]">
+                {currentStops.length} STOPS TODAY
+              </span>
+            </div>
+          )}
 
           {/* Myth Pointer Hook Banner for this Destination */}
           <div className="bg-[#9333EA] text-white border-[2.5px] border-[#111827] rounded-xl p-4 shadow-[4px_4px_0px_#111827] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -299,7 +530,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
                 </span>
               </div>
               <p className="text-[11px] font-mono text-purple-100">
-                Check cultural taboos, dining misconceptions & tourist scams before you arrive in {currentCity}.
+                Check cultural taboos, dining misconceptions & tourist etiquette before you arrive in {currentCity}.
               </p>
             </div>
 
@@ -312,10 +543,10 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
             </button>
           </div>
 
-          {/* Timeline Stop Cards */}
+          {/* Timeline Stop Cards for Active Day */}
           <div className="space-y-3 pt-1">
-            {stops.map((stop, idx) => (
-              <React.Fragment key={stop.id}>
+            {currentStops.map((stop, idx) => (
+              <React.Fragment key={stop.id || idx}>
                 <div className="transition-all duration-300 hover:-translate-y-0.5">
                   <StopCard
                     stop={stop}
@@ -326,7 +557,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
                 </div>
 
                 {/* Transit indicator between stops */}
-                {idx < stops.length - 1 && (
+                {idx < currentStops.length - 1 && (
                   <div className="flex items-center justify-center my-1.5">
                     <div className="px-3 py-1 bg-white border border-[#111827] rounded-full text-[10px] font-mono font-bold text-gray-700 shadow-sm flex items-center space-x-1.5">
                       <span>🚗 TRANSIT</span>

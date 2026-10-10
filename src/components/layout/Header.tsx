@@ -18,14 +18,24 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 bg-[#FDFBF7] border-b-[2.5px] border-[#111827] px-3 sm:px-4 py-2.5 shadow-sm">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
         
-        {/* Brand & City */}
-        <div className="flex items-center space-x-2 sm:space-x-2.5">
-          <div className="bg-[#1B3FFF] text-white px-2.5 py-1 rounded-lg border-2 border-[#111827] shadow-[2px_2px_0px_#111827] font-display font-black text-lg tracking-tight">
-            POYALO
+        {/* Brand & City (Clickable to trigger supersonic easter egg) */}
+        <button 
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('poyalo:airplane-shake'));
+            }
+          }}
+          title="Shake phone or click here for Supersonic Easter Egg! ✈️"
+          className="flex items-center space-x-2 sm:space-x-2.5 text-left group active:translate-x-0.5 active:translate-y-0.5 transition-transform"
+        >
+          <div className="bg-[#1B3FFF] group-hover:bg-[#1532CC] text-white px-2.5 py-1 rounded-lg border-2 border-[#111827] shadow-[2px_2px_0px_#111827] font-display font-black text-lg tracking-tight flex items-center space-x-1">
+            <span>POYALO</span>
+            <span className="text-sm">✈️</span>
           </div>
           <div>
             <div className="flex items-center space-x-1.5">
-              <span className="font-display font-black text-xs text-[#111827] tracking-wider uppercase">
+              <span className="font-display font-black text-xs text-[#111827] tracking-wider uppercase group-hover:text-[#FF5722] transition-colors">
                 പോയാലോ?
               </span>
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#FBBF24] border border-[#111827] text-[#111827]">
@@ -37,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
               Story-First Travel Companion
             </p>
           </div>
-        </div>
+        </button>
 
         {/* Right Badges: Install App, Offline & Demo Teleport */}
         <div className="flex items-center space-x-1.5 sm:space-x-2">
