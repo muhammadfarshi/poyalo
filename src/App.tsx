@@ -49,7 +49,7 @@ export const App: React.FC = () => {
       <Header
         isOffline={isOffline}
         onTeleportDemo={handleTeleportDemo}
-        activeCity="Dubai (CCJ ✈️ DXB)"
+        activeCity="Dubai, UAE"
       />
 
       {/* Main Viewport Container */}

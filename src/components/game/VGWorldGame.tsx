@@ -29,7 +29,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
   const remotePlayersRef = useRef<RemotePlayer[]>([
     {
       id: 'usr_rohan',
-      displayName: 'Rohan (CCJ ✈️ DXB)',
+      displayName: 'Rohan (Tourist)',
       avatarColor: '#1B3FFF',
       x: 4.5,
       y: 0.8,
@@ -49,7 +49,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     }
   ]);
 
-  // Audio synthesizer via Web Audio API (zero external assets needed)
+  // Audio synthesizer via Web Audio API
   const playPickupSound = useCallback(() => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -86,13 +86,14 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
 
     // 1. SCENE SETUP
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#FDE68A'); // Warm golden-hour desert amber
-    scene.fog = new THREE.FogExp2('#FDE68A', 0.018);
+    scene.background = new THREE.Color('#87CEEB'); // Light blue skybox gradient effect
+    scene.fog = new THREE.FogExp2('#87CEEB', 0.012);
 
     // 2. CAMERA SETUP
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || (window.innerHeight - 130);
     const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 500);
+    const targetCameraPos = new THREE.Vector3();
 
     // 3. RENDERER SETUP
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -102,9 +103,12 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // 4. LIGHTING: Golden Hour Sun
-    const ambientLight = new THREE.AmbientLight('#FFFBEB', 1.2);
+    // 4. LIGHTING
+    const ambientLight = new THREE.AmbientLight('#FFFBEB', 0.8);
     scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight('#FFFFFF', '#E8D2A6', 0.6);
+    scene.add(hemiLight);
 
     const sunLight = new THREE.DirectionalLight('#F59E0B', 2.0);
     sunLight.position.set(25, 35, 20);
@@ -112,23 +116,47 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     sunLight.shadow.mapSize.width = 1024;
     sunLight.shadow.mapSize.height = 1024;
     sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 150;
-    sunLight.shadow.camera.left = -40;
-    sunLight.shadow.camera.right = 40;
-    sunLight.shadow.camera.top = 40;
-    sunLight.shadow.camera.bottom = -40;
+    sunLight.shadow.camera.far = 200;
+    sunLight.shadow.camera.left = -70;
+    sunLight.shadow.camera.right = 70;
+    sunLight.shadow.camera.top = 70;
+    sunLight.shadow.camera.bottom = -70;
+    sunLight.shadow.bias = -0.0005;
     scene.add(sunLight);
 
     // 5. GROUND: Sandy Desert & Sikka Streets
-    const groundGeo = new THREE.PlaneGeometry(160, 160);
+    const groundGeo = new THREE.PlaneGeometry(200, 200);
     const groundMat = new THREE.MeshLambertMaterial({ color: '#E8D2A6' });
     const groundMesh = new THREE.Mesh(groundGeo, groundMat);
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
+    // Grid pattern
+    const gridHelper = new THREE.GridHelper(200, 100, '#d1d5db', '#d1d5db');
+    gridHelper.position.y = 0.02;
+    const gridMat = gridHelper.material as THREE.Material;
+    gridMat.opacity = 0.25;
+    gridMat.transparent = true;
+    scene.add(gridHelper);
+
+    // Road system
+    const createRoad = (w: number, d: number, x: number, z: number, rotationY = 0) => {
+      const roadGeo = new THREE.PlaneGeometry(w, d);
+      const roadMat = new THREE.MeshLambertMaterial({ color: '#374151' });
+      const road = new THREE.Mesh(roadGeo, roadMat);
+      road.rotation.x = -Math.PI / 2;
+      road.rotation.z = rotationY;
+      road.position.set(x, 0.03, z);
+      road.receiveShadow = true;
+      return road;
+    };
+    scene.add(createRoad(10, 140, -10, 0));
+    scene.add(createRoad(80, 10, -15, 20, Math.PI / 2));
+    scene.add(createRoad(80, 10, -15, -25, Math.PI / 2));
+
     // 6. DUBAI CREEK WATERWAY
-    const creekGeo = new THREE.PlaneGeometry(35, 160);
+    const creekGeo = new THREE.PlaneGeometry(35, 200);
     const creekMat = new THREE.MeshLambertMaterial({ 
       color: '#38BDF8', 
       transparent: true, 
@@ -141,7 +169,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     scene.add(creekMesh);
 
     // Creek Quay Wall
-    const quayGeo = new THREE.BoxGeometry(1.5, 0.8, 160);
+    const quayGeo = new THREE.BoxGeometry(1.5, 0.8, 200);
     const quayMat = new THREE.MeshLambertMaterial({ color: '#C2A378' });
     const quay = new THREE.Mesh(quayGeo, quayMat);
     quay.position.set(8.5, 0.4, 0);
@@ -188,14 +216,98 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     scene.add(abra1);
     scene.add(abra2);
 
-    // 8. AL FAHIDI HISTORIC BUILDINGS & BARAJEEL WIND TOWERS
+    // 8. DUBAI LANDMARKS
+    
+    // a) Burj Khalifa
+    const bkGroup = new THREE.Group();
+    const bkSilver = new THREE.MeshLambertMaterial({ color: '#C0C0C0' });
+    const bkDark = new THREE.MeshLambertMaterial({ color: '#4B5563' });
+    for (let i = 0; i < 5; i++) {
+      const size = 6 - i * 1.1;
+      const h = 9;
+      const boxGeo = new THREE.BoxGeometry(size, h, size);
+      const box = new THREE.Mesh(boxGeo, i === 0 ? bkDark : bkSilver);
+      box.position.y = i * h + h / 2;
+      box.castShadow = true;
+      box.receiveShadow = true;
+      bkGroup.add(box);
+    }
+    const bkSpireGeo = new THREE.CylinderGeometry(0.1, 0.5, 10, 4);
+    const bkSpire = new THREE.Mesh(bkSpireGeo, bkSilver);
+    bkSpire.position.y = 45 + 5;
+    bkSpire.castShadow = true;
+    bkGroup.add(bkSpire);
+    const obsDeckGeo = new THREE.TorusGeometry(2.5, 0.4, 8, 16);
+    const obsDeck = new THREE.Mesh(obsDeckGeo, new THREE.MeshLambertMaterial({ color: '#374151' }));
+    obsDeck.rotation.x = Math.PI / 2;
+    obsDeck.position.y = 30;
+    bkGroup.add(obsDeck);
+    bkGroup.position.set(30, 0, -60);
+    scene.add(bkGroup);
+
+    // b) Dubai Frame
+    const dfGroup = new THREE.Group();
+    const goldMat = new THREE.MeshLambertMaterial({ color: '#D4AF37' });
+    const pillarGeo = new THREE.BoxGeometry(2, 25, 2);
+    const p1 = new THREE.Mesh(pillarGeo, goldMat);
+    p1.position.set(-6.5, 12.5, 0);
+    p1.castShadow = true;
+    const p2 = new THREE.Mesh(pillarGeo, goldMat);
+    p2.position.set(6.5, 12.5, 0);
+    p2.castShadow = true;
+    const bridgeGeo = new THREE.BoxGeometry(15, 2, 2);
+    const bridge = new THREE.Mesh(bridgeGeo, goldMat);
+    bridge.position.set(0, 24, 0);
+    bridge.castShadow = true;
+    dfGroup.add(p1, p2, bridge);
+    dfGroup.position.set(-25, 0, -35);
+    scene.add(dfGroup);
+
+    // c) Burj Al Arab
+    const baaGroup = new THREE.Group();
+    const whiteMat = new THREE.MeshLambertMaterial({ color: '#F5F5F5' });
+    const tealMat = new THREE.MeshLambertMaterial({ color: '#0D9488' });
+    const sailGeo = new THREE.CylinderGeometry(0.1, 5, 20, 3);
+    const sail = new THREE.Mesh(sailGeo, whiteMat);
+    sail.position.y = 10;
+    sail.rotation.y = -Math.PI / 2;
+    sail.castShadow = true;
+    const accentGeo = new THREE.CylinderGeometry(0.5, 0.5, 22, 16);
+    const accent = new THREE.Mesh(accentGeo, tealMat);
+    accent.position.set(2, 11, 0);
+    accent.rotation.z = -0.15;
+    baaGroup.add(sail, accent);
+    const islandGeo = new THREE.CylinderGeometry(8, 8, 0.5, 32);
+    const islandMat = new THREE.MeshLambertMaterial({ color: '#D4D4D8' });
+    const island = new THREE.Mesh(islandGeo, islandMat);
+    island.position.y = 0.25;
+    island.receiveShadow = true;
+    baaGroup.add(island);
+    baaGroup.position.set(40, 0, 25);
+    scene.add(baaGroup);
+
+    // d) Museum of the Future
+    const motfGroup = new THREE.Group();
+    const chromeMat = new THREE.MeshStandardMaterial({ color: '#A8A29E', roughness: 0.3, metalness: 0.8 });
+    const torusGeo = new THREE.TorusGeometry(4, 2, 16, 50);
+    const torus = new THREE.Mesh(torusGeo, chromeMat);
+    torus.position.y = 6;
+    const baseGeo = new THREE.BoxGeometry(6, 1, 4);
+    const base = new THREE.Mesh(baseGeo, new THREE.MeshLambertMaterial({ color: '#374151' }));
+    base.position.y = 0.5;
+    motfGroup.add(torus, base);
+    torus.castShadow = true;
+    motfGroup.position.set(-35, 0, 15);
+    motfGroup.rotation.y = Math.PI / 4;
+    scene.add(motfGroup);
+
+    // 9. AL FAHIDI HISTORIC BUILDINGS & BARAJEEL WIND TOWERS
     const buildingMat = new THREE.MeshLambertMaterial({ color: '#D4B996' });
     const woodMat = new THREE.MeshLambertMaterial({ color: '#451A03' });
 
     const createAlFahidiHouse = (x: number, z: number, w: number, h: number, d: number) => {
       const houseGroup = new THREE.Group();
       
-      // Main House Block
       const mainGeo = new THREE.BoxGeometry(w, h, d);
       const main = new THREE.Mesh(mainGeo, buildingMat);
       main.position.y = h / 2;
@@ -203,13 +315,11 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       main.receiveShadow = true;
       houseGroup.add(main);
 
-      // Wooden Arch Door
       const doorGeo = new THREE.BoxGeometry(1.2, 2.2, 0.2);
       const door = new THREE.Mesh(doorGeo, woodMat);
       door.position.set(0, 1.1, d / 2 + 0.05);
       houseGroup.add(door);
 
-      // Wind Tower (Barajeel) on roof
       const towerWidth = 2.5;
       const towerHeight = 3.5;
       const towerGeo = new THREE.BoxGeometry(towerWidth, towerHeight, towerWidth);
@@ -218,7 +328,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       tower.castShadow = true;
       houseGroup.add(tower);
 
-      // Cross ventilation slits atop the wind tower
       const slitGeo = new THREE.BoxGeometry(towerWidth + 0.1, 0.8, 0.4);
       const slit = new THREE.Mesh(slitGeo, woodMat);
       slit.position.set(w / 3, h + towerHeight - 0.5, -d / 3);
@@ -228,7 +337,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       return houseGroup;
     };
 
-    // Cluster of historic courtyard houses
     const houses = [
       createAlFahidiHouse(-16, -18, 10, 5.5, 12),
       createAlFahidiHouse(-18, 8, 11, 6.0, 14),
@@ -238,10 +346,9 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     ];
     houses.forEach(h => scene.add(h));
 
-    // 9. PALM TREES
+    // 10. PALM TREES
     const createPalmTree = (x: number, z: number) => {
       const palmGroup = new THREE.Group();
-      // Trunk
       const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 4.5, 6);
       const trunkMat = new THREE.MeshLambertMaterial({ color: '#78350F' });
       const trunk = new THREE.Mesh(trunkGeo, trunkMat);
@@ -249,7 +356,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       trunk.castShadow = true;
       palmGroup.add(trunk);
 
-      // Fronds / Foliage
       for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
         const leafGeo = new THREE.ConeGeometry(0.9, 2.2, 4);
         const leafMat = new THREE.MeshLambertMaterial({ color: '#15803D' });
@@ -260,7 +366,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         leaf.castShadow = true;
         palmGroup.add(leaf);
       }
-
       palmGroup.position.set(x, 0, z);
       return palmGroup;
     };
@@ -270,66 +375,112 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       createPalmTree(5, 12),
       createPalmTree(-8, -10),
       createPalmTree(-10, 16),
-      createPalmTree(2, -2)
+      createPalmTree(2, -2),
+      createPalmTree(5, 30),
+      createPalmTree(5, -25),
+      createPalmTree(5, -40),
+      createPalmTree(5, 45)
     ];
     palms.forEach(p => scene.add(p));
 
-    // 10. PLAYER AVATAR MESH
+    // Helper to create characters (Player + Remotes)
+    const createCharacterRig = (primaryColor: string, isMainPlayer: boolean) => {
+      const rigGroup = new THREE.Group();
+      
+      const bodyMat = new THREE.MeshLambertMaterial({ color: primaryColor });
+      const skinMat = new THREE.MeshLambertMaterial({ color: '#FDE047' });
+    
+      const torsoGeo = new THREE.CylinderGeometry(0.35, 0.45, 1.1, 4);
+      const torso = new THREE.Mesh(torsoGeo, bodyMat);
+      torso.rotation.y = Math.PI / 4;
+      torso.position.y = 0.85;
+      torso.castShadow = true;
+      rigGroup.add(torso);
+    
+      const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
+      const head = new THREE.Mesh(headGeo, skinMat);
+      head.position.y = 1.6;
+      head.castShadow = true;
+      rigGroup.add(head);
+    
+      const hatGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.1, 16);
+      const hatMat = new THREE.MeshLambertMaterial({ color: '#FBBF24' });
+      const hat = new THREE.Mesh(hatGeo, hatMat);
+      hat.position.y = 1.95;
+      hat.castShadow = true;
+      rigGroup.add(hat);
+    
+      if (isMainPlayer) {
+        const packGeo = new THREE.BoxGeometry(0.5, 0.6, 0.35);
+        const packMat = new THREE.MeshLambertMaterial({ color: '#FF5722' });
+        const pack = new THREE.Mesh(packGeo, packMat);
+        pack.position.set(0, 0.9, -0.4);
+        pack.castShadow = true;
+        rigGroup.add(pack);
+      }
+    
+      const armGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.7, 8);
+      const legGeo = new THREE.CylinderGeometry(0.12, 0.1, 0.8, 8);
+    
+      const leftArm = new THREE.Group();
+      leftArm.position.set(0.45, 1.3, 0);
+      const leftArmMesh = new THREE.Mesh(armGeo, skinMat);
+      leftArmMesh.position.y = -0.35;
+      leftArmMesh.castShadow = true;
+      leftArm.add(leftArmMesh);
+      rigGroup.add(leftArm);
+    
+      const rightArm = new THREE.Group();
+      rightArm.position.set(-0.45, 1.3, 0);
+      const rightArmMesh = new THREE.Mesh(armGeo, skinMat);
+      rightArmMesh.position.y = -0.35;
+      rightArmMesh.castShadow = true;
+      rightArm.add(rightArmMesh);
+      rigGroup.add(rightArm);
+    
+      const leftLeg = new THREE.Group();
+      leftLeg.position.set(0.2, 0.8, 0);
+      const leftLegMesh = new THREE.Mesh(legGeo, bodyMat);
+      leftLegMesh.position.y = -0.4;
+      leftLegMesh.castShadow = true;
+      leftLeg.add(leftLegMesh);
+      rigGroup.add(leftLeg);
+    
+      const rightLeg = new THREE.Group();
+      rightLeg.position.set(-0.2, 0.8, 0);
+      const rightLegMesh = new THREE.Mesh(legGeo, bodyMat);
+      rightLegMesh.position.y = -0.4;
+      rightLegMesh.castShadow = true;
+      rightLeg.add(rightLegMesh);
+      rigGroup.add(rightLeg);
+    
+      return { rigGroup, leftArm, rightArm, leftLeg, rightLeg };
+    };
+
+    // 11. PLAYER AVATAR MESH
     const playerGroup = new THREE.Group();
-
-    // Body
-    const bodyGeo = new THREE.CylinderGeometry(0.4, 0.45, 1.1, 8);
-    const bodyMat = new THREE.MeshLambertMaterial({ color: '#1B3FFF' }); // Layover blue
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 0.85;
-    body.castShadow = true;
-    playerGroup.add(body);
-
-    // Head
-    const headGeo = new THREE.SphereGeometry(0.35, 12, 12);
-    const headMat = new THREE.MeshLambertMaterial({ color: '#FDE047' }); // Stylized golden
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 1.6;
-    head.castShadow = true;
-    playerGroup.add(head);
-
-    // Backpack
-    const packGeo = new THREE.BoxGeometry(0.5, 0.6, 0.35);
-    const packMat = new THREE.MeshLambertMaterial({ color: '#FF5722' }); // Jet orange
-    const pack = new THREE.Mesh(packGeo, packMat);
-    pack.position.set(0, 0.9, -0.4);
-    pack.castShadow = true;
-    playerGroup.add(pack);
-
+    const playerChar = createCharacterRig('#1B3FFF', true);
+    playerGroup.add(playerChar.rigGroup);
     playerGroup.position.set(0, 0, 0);
     scene.add(playerGroup);
 
-    // 11. REMOTE PLAYERS MESHES (Multiplayer Avatars)
+    // 12. REMOTE PLAYERS MESHES (Multiplayer Avatars)
     const remoteMeshes: { [id: string]: THREE.Group } = {};
 
     remotePlayersRef.current.forEach((rp) => {
       const rGroup = new THREE.Group();
-      const rBodyGeo = new THREE.CylinderGeometry(0.4, 0.45, 1.1, 8);
-      const rBodyMat = new THREE.MeshLambertMaterial({ color: rp.avatarColor });
-      const rBody = new THREE.Mesh(rBodyGeo, rBodyMat);
-      rBody.position.y = 0.85;
-      rBody.castShadow = true;
-      rGroup.add(rBody);
-
-      const rHeadGeo = new THREE.SphereGeometry(0.35, 12, 12);
-      const rHeadMat = new THREE.MeshLambertMaterial({ color: '#FEF08A' });
-      const rHead = new THREE.Mesh(rHeadGeo, rHeadMat);
-      rHead.position.y = 1.6;
-      rHead.castShadow = true;
-      rGroup.add(rHead);
-
+      const char = createCharacterRig(rp.avatarColor, false);
+      rGroup.add(char.rigGroup);
       rGroup.position.set(rp.x, 0, rp.z);
+      // Face roughly towards center
+      rGroup.rotation.y = rp.rotationY || 0;
       scene.add(rGroup);
       remoteMeshes[rp.id] = rGroup;
     });
 
-    // 12. 3D COLLECTIBLE ITEMS MESHES
+    // 13. 3D COLLECTIBLE ITEMS MESHES
     const collectibleMeshes: { [id: string]: THREE.Group } = {};
+    const collectibleRings: { [id: string]: THREE.MeshLambertMaterial } = {};
 
     INITIAL_VG_WORLD_COLLECTIBLES.forEach((item) => {
       const cGroup = new THREE.Group();
@@ -357,12 +508,20 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       mesh.castShadow = true;
       cGroup.add(mesh);
 
+      // Glow Ring
+      const ringGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 16);
+      const ringMat = new THREE.MeshLambertMaterial({ color: '#FBBF24', emissive: '#F59E0B', emissiveIntensity: 0.5 });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.position.y = 0.03;
+      cGroup.add(ringMesh);
+
       cGroup.position.set(item.x, item.y, item.z);
       scene.add(cGroup);
       collectibleMeshes[item.id] = cGroup;
+      collectibleRings[item.id] = ringMat;
     });
 
-    // 13. CAMERA ORBIT DRAG LISTENER
+    // 14. CAMERA ORBIT DRAG LISTENER
     let cameraAngle = Math.PI * 0.75;
     let cameraPitch = 0.45;
     let isDragging = false;
@@ -370,7 +529,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     let prevMouseY = 0;
 
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
-      // If click was inside the virtual joystick area, skip camera drag
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       if (clientX < 140 && clientY > height - 160) return;
@@ -426,9 +584,21 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     };
     window.addEventListener('resize', onWindowResize);
 
-    // 14. GAME LOOP
+    // 15. GAME LOOP
     let animationFrameId: number;
     let clock = new THREE.Clock();
+
+    const velocity = new THREE.Vector3();
+    const maxSpeed = 10.0;
+    const accelRate = maxSpeed / 0.15;
+    const decelRate = maxSpeed / 0.1;
+
+    // Set initial camera position so it doesn't snap on load
+    const initialCamDist = 7.5;
+    targetCameraPos.x = playerGroup.position.x + Math.sin(cameraAngle) * Math.cos(cameraPitch) * initialCamDist;
+    targetCameraPos.y = playerGroup.position.y + Math.sin(cameraPitch) * initialCamDist + 1.2;
+    targetCameraPos.z = playerGroup.position.z + Math.cos(cameraAngle) * Math.cos(cameraPitch) * initialCamDist;
+    camera.position.copy(targetCameraPos);
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -437,54 +607,84 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
 
       // Collect movement input
       let moveX = moveVectorRef.current.x;
-      let moveZ = -moveVectorRef.current.y; // Y inverted from joystick
+      let moveZ = -moveVectorRef.current.y; 
 
       if (keysPressed.current['w'] || keysPressed.current['arrowup']) moveZ -= 1;
       if (keysPressed.current['s'] || keysPressed.current['arrowdown']) moveZ += 1;
       if (keysPressed.current['a'] || keysPressed.current['arrowleft']) moveX -= 1;
       if (keysPressed.current['d'] || keysPressed.current['arrowright']) moveX += 1;
 
-      // Apply movement relative to camera azimuth
+      const targetVelocity = new THREE.Vector3(0, 0, 0);
       if (moveX !== 0 || moveZ !== 0) {
         const length = Math.hypot(moveX, moveZ);
         const normX = moveX / Math.max(1, length);
         const normZ = moveZ / Math.max(1, length);
 
-        const speed = 7.5 * delta;
-
-        // Rotate movement vector by camera angle
         const sin = Math.sin(cameraAngle);
         const cos = Math.cos(cameraAngle);
 
         const worldX = normX * cos - normZ * sin;
         const worldZ = normX * sin + normZ * cos;
 
-        playerGroup.position.x += worldX * speed;
-        playerGroup.position.z += worldZ * speed;
-
-        // Player rotation facing movement direction
-        playerGroup.rotation.y = Math.atan2(worldX, worldZ);
+        targetVelocity.set(worldX, 0, worldZ).multiplyScalar(maxSpeed);
       }
 
-      // Keep player inside boundary
-      playerGroup.position.x = Math.max(-35, Math.min(7.5, playerGroup.position.x));
-      playerGroup.position.z = Math.max(-45, Math.min(45, playerGroup.position.z));
+      // Smooth acceleration/deceleration
+      const rate = targetVelocity.lengthSq() > 0 ? accelRate : decelRate;
+      const diff = targetVelocity.clone().sub(velocity);
+      if (diff.length() <= rate * delta) {
+        velocity.copy(targetVelocity);
+      } else {
+        velocity.add(diff.normalize().multiplyScalar(rate * delta));
+      }
 
-      // Camera follow player with orbit
+      playerGroup.position.addScaledVector(velocity, delta);
+
+      const currentSpeed = velocity.length();
+      if (currentSpeed > 0.1) {
+        playerGroup.rotation.y = Math.atan2(velocity.x, velocity.z);
+        
+        // Bobbing and swinging
+        const bob = Math.abs(Math.sin(time * 15)) * 0.1 * (currentSpeed / maxSpeed);
+        playerChar.rigGroup.position.y = bob;
+        
+        const swing = Math.sin(time * 15) * 0.6 * (currentSpeed / maxSpeed);
+        playerChar.leftArm.rotation.x = swing;
+        playerChar.rightArm.rotation.x = -swing;
+        playerChar.leftLeg.rotation.x = -swing;
+        playerChar.rightLeg.rotation.x = swing;
+      } else {
+        playerChar.rigGroup.position.y = 0;
+        playerChar.leftArm.rotation.x = 0;
+        playerChar.rightArm.rotation.x = 0;
+        playerChar.leftLeg.rotation.x = 0;
+        playerChar.rightLeg.rotation.x = 0;
+      }
+
+      // Keep player inside boundary [-50, 50], [-70, 70] but limit x <= 7.5 near water
+      playerGroup.position.x = Math.max(-50, Math.min(7.5, playerGroup.position.x));
+      playerGroup.position.z = Math.max(-70, Math.min(70, playerGroup.position.z));
+
+      // Camera follow player with orbit and smoothing
       const camDist = 7.5;
-      camera.position.x = playerGroup.position.x + Math.sin(cameraAngle) * Math.cos(cameraPitch) * camDist;
-      camera.position.y = playerGroup.position.y + Math.sin(cameraPitch) * camDist + 1.2;
-      camera.position.z = playerGroup.position.z + Math.cos(cameraAngle) * Math.cos(cameraPitch) * camDist;
+      targetCameraPos.x = playerGroup.position.x + Math.sin(cameraAngle) * Math.cos(cameraPitch) * camDist;
+      targetCameraPos.y = playerGroup.position.y + Math.sin(cameraPitch) * camDist + 1.2;
+      targetCameraPos.z = playerGroup.position.z + Math.cos(cameraAngle) * Math.cos(cameraPitch) * camDist;
+      
+      camera.position.lerp(targetCameraPos, 0.08); // Smooth dampening
       camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1.2, playerGroup.position.z);
 
-      // Rotate & Bob Collectibles
+      // Rotate & Bob Collectibles, pulse glow
+      const pulse = 0.5 + Math.sin(time * 3) * 0.3;
       INITIAL_VG_WORLD_COLLECTIBLES.forEach((item) => {
         const cMesh = collectibleMeshes[item.id];
+        const ringMat = collectibleRings[item.id];
+        if (ringMat) ringMat.emissiveIntensity = pulse;
+
         if (cMesh && cMesh.visible) {
           cMesh.rotation.y += 2.0 * delta;
           cMesh.position.y = item.y + Math.sin(time * 3 + item.x) * 0.15;
 
-          // Proximity Test: d <= 1.2m
           const dist = Math.hypot(
             playerGroup.position.x - item.x,
             playerGroup.position.z - item.z
@@ -528,7 +728,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
 
     animate();
 
-    // 15. MEMORY CLEANUP INVARIANT (THREE.JS VRAM DISPOSAL)
+    // 16. MEMORY CLEANUP INVARIANT (THREE.JS VRAM DISPOSAL)
     return () => {
       cancelAnimationFrame(animationFrameId);
 
@@ -566,7 +766,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
   const totalPearls = collectibles.filter(c => c.type === 'pearl').length;
 
   return (
-    <div className="relative w-full h-[calc(100vh-140px)] min-h-[480px] bg-[#FDE68A] overflow-hidden rounded-2xl border-[2.5px] border-[#111827] shadow-[4px_4px_0px_#111827]">
+    <div className="relative w-full h-[calc(100vh-140px)] min-h-[480px] bg-[#87CEEB] overflow-hidden rounded-2xl border-[2.5px] border-[#111827] shadow-[4px_4px_0px_#111827]">
       
       {/* 3D WebGL Canvas Container */}
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />

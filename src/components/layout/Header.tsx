@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <p className="text-[10px] font-mono text-gray-500 hidden sm:block">
-              CCJ ➔ DXB Corridor • Comic Lore & 3D Reality
+              Dubai Explorer • Comic Lore & 3D Reality
             </p>
           </div>
         </div>

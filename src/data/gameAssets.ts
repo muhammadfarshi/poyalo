@@ -76,7 +76,7 @@ export const INITIAL_VG_WORLD_COLLECTIBLES: CollectibleItem[] = [
     z: -14.5,
     emoji: '🪙',
     color: '#F59E0B',
-    culturalFact: 'Merchant dhows trading between Dubai Creek, Kozhikode (Calicut), and Zanzibar exchanged gold sovereigns, Maria Theresa thalers, and Gulf trade rupees.',
+    culturalFact: 'Merchant dhows trading between Dubai Creek, Muscat, and Zanzibar exchanged gold sovereigns, Maria Theresa thalers, and Gulf trade rupees.',
     collected: false
   },
   {

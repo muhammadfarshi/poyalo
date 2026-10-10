@@ -16,7 +16,7 @@ export const MURPHY_SCENARIOS: MurphyScenario[] = [
   },
   {
     id: 'flight-delay',
-    title: 'Flight CCJ ➔ DXB 3-Hour Layover Delay',
+    title: 'Dubai Flight Arrival 3-Hour Delay',
     icon: '✈️',
     description: 'Baggage handling delays at Terminal 1 push your arrival back by 180 minutes. Morning plans are blown.',
     impactText: 'Morning schedule compressed. Afternoon stops require immediate re-sequencing.'

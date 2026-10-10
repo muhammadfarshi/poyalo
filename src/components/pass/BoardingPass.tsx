@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plane, QrCode, Sparkles, Check, Share2, Award, Compass } from 'lucide-react';
+import { QrCode, Sparkles, Check, Share2, Award, Compass } from 'lucide-react';
 
 interface BoardingPassProps {
   gameScore: number;
@@ -24,40 +24,40 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
           Your POYALO Boarding Stub
         </h1>
         <p className="text-xs font-mono text-gray-600">
-          CCJ (Kozhikode) ➔ DXB (Dubai International)
+          Your Dubai Explorer Achievement Card
         </p>
       </div>
 
       {/* The Neo-Brutalist Vertical Boarding Pass */}
       <div className="relative bg-white border-[2.5px] border-[#111827] rounded-3xl overflow-hidden shadow-[6px_6px_0px_#111827]">
         
-        {/* Pass Top Flight Section */}
+        {/* Pass Top Section */}
         <div className="p-5 bg-[#1B3FFF] text-white space-y-4">
           <div className="flex items-center justify-between">
             <span className="font-mono font-black text-xs tracking-widest uppercase bg-white/20 px-2 py-0.5 rounded">
-              POYALO AIR • FLIGHT PY-842
+              POYALO • DUBAI EXPLORER PASS
             </span>
             <span className="font-mono font-bold text-xs bg-[#FF5722] text-white px-2 py-0.5 rounded border border-[#111827]">
               SEAT 09F
             </span>
           </div>
 
-          {/* Route CCJ -> DXB */}
+          {/* Route Display */}
           <div className="flex items-center justify-between pt-1">
             <div>
-              <span className="text-3xl font-display font-black tracking-tight">CCJ</span>
-              <p className="text-[10px] font-mono text-blue-200">KOZHIKODE</p>
+              <span className="text-3xl font-display font-black tracking-tight">DUBAI</span>
+              <p className="text-[10px] font-mono text-blue-200">UNITED ARAB EMIRATES</p>
             </div>
 
             <div className="flex flex-col items-center">
-              <Plane className="w-6 h-6 text-amber-300 transform rotate-45 animate-pulse" />
+              <Compass className="w-6 h-6 text-amber-300 animate-pulse" />
               <div className="w-16 h-[2px] bg-white/40 my-1" />
-              <span className="text-[9px] font-mono text-blue-200">3H 45M NONSTOP</span>
+              <span className="text-[9px] font-mono text-blue-200">HERITAGE TRAIL</span>
             </div>
 
             <div className="text-right">
-              <span className="text-3xl font-display font-black tracking-tight">DXB</span>
-              <p className="text-[10px] font-mono text-blue-200">DUBAI INTL</p>
+              <span className="text-3xl font-display font-black tracking-tight">CREEK</span>
+              <p className="text-[10px] font-mono text-blue-200">AL FAHIDI DISTRICT</p>
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
               <span>PASSPORT 180-DAY VALID</span>
             </div>
             <p className="text-[10px] font-mono text-gray-500">
-              Booking Ref: <strong className="text-[#111827]">POY-842-DXB</strong>
+              Booking Ref: <strong className="text-[#111827]">POY-2026-DXB</strong>
             </p>
           </div>
 

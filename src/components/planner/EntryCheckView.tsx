@@ -3,7 +3,7 @@ import { ShieldCheck, AlertTriangle, CheckCircle, Calendar, Globe, FileText, Loc
 import { evaluatePassportRules, COUNTRY_VISA_MATRIX } from '../../data/passportRules';
 
 export const EntryCheckView: React.FC = () => {
-  const [nationality, setNationality] = useState<string>('IN'); // India default (CCJ to DXB theme)
+  const [nationality, setNationality] = useState<string>('IN');
   const [passportExpiryDate, setPassportExpiryDate] = useState<string>('2027-05-15');
   const [tripStartDate, setTripStartDate] = useState<string>('2026-10-16');
 
@@ -45,7 +45,7 @@ export const EntryCheckView: React.FC = () => {
           Passport Expiry & UAE Visa Matrix
         </h1>
         <p className="text-xs sm:text-sm font-mono text-gray-700 mt-1">
-          Verify your eligibility under the 180-day international rule before you fly from Calicut (CCJ) to Dubai (DXB).
+          Verify your eligibility under the 180-day international rule before your trip to Dubai.
         </p>
       </div>
 
@@ -164,12 +164,12 @@ export const EntryCheckView: React.FC = () => {
           <span>IMMIGRATION OFFICER DESK CHECKLIST</span>
         </h3>
         <p className="text-xs font-mono text-gray-600">
-          Airline check-in agents at CCJ / DXB verify these 4 items before boarding:
+          Airline check-in agents verify these 4 items before boarding:
         </p>
 
         <div className="space-y-2 pt-1">
           {[
-            { key: 'onwardTicket' as const, label: 'Confirmed Onward / Return Airline Ticket (DXB ➔ CCJ)' },
+            { key: 'onwardTicket' as const, label: 'Confirmed Onward / Return Airline Ticket' },
             { key: 'hotelBooking' as const, label: 'Confirmed Accommodation / Hotel Booking Voucher in Dubai' },
             { key: 'travelInsurance' as const, label: 'Travel Health Insurance policy with UAE medical coverage' },
             { key: 'fundsProof' as const, label: 'Proof of Funds (Credit card or minimum 3,000 AED cash/balance)' }
