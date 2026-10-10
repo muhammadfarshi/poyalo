@@ -129,6 +129,7 @@ export const ItineraryPlanner: React.FC = () => {
   const [stops, setStops] = useState<ItineraryStop[]>(CHAOTIC_PRESET_STOPS);
   const [userPrompt, setUserPrompt] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [planToast, setPlanToast] = useState<string | null>(null);
   const [isMurphyActive, setIsMurphyActive] = useState<boolean>(false);
   const [commentaryMode, setCommentaryMode] = useState<'roast' | 'professor'>('roast');
 
@@ -169,12 +170,29 @@ export const ItineraryPlanner: React.FC = () => {
     if (!userPrompt.trim()) return;
     setIsGenerating(true);
 
+    const lower = userPrompt.toLowerCase();
+    const heritageKeywords = ['heritage', 'culture', 'history', 'old', 'traditional', 'souk', 'creek', 'abra'];
+    const chaoticKeywords = ['adventure', 'chaos', 'random', 'wild', 'fast', 'rush'];
+
+    const hasChaotic = chaoticKeywords.some((keyword) => lower.includes(keyword));
+    const hasHeritage = heritageKeywords.some((keyword) => lower.includes(keyword));
+
     setTimeout(() => {
       setIsGenerating(false);
-      // Simulate intelligent planning response
-      setStops(OPTIMAL_PRESET_STOPS);
+      if (hasChaotic && !hasHeritage) {
+        setStops(CHAOTIC_PRESET_STOPS);
+        setPlanToast('🚨 Matched: Chaotic Speed Run');
+      } else {
+        setStops(OPTIMAL_PRESET_STOPS);
+        setPlanToast('✨ Matched: Heritage Cultural Tour');
+      }
+      setIsMurphyActive(false);
       setUserPrompt('');
-    }, 700);
+
+      setTimeout(() => {
+        setPlanToast(null);
+      }, 3000);
+    }, 400);
   };
 
   const scoreBadgeBg = 
@@ -226,13 +244,13 @@ export const ItineraryPlanner: React.FC = () => {
           </div>
         </div>
 
-        {/* AI Prompt Input Bar */}
+        {/* Smart Prompt Input Bar */}
         <form onSubmit={handleGenerateFromPrompt} className="mt-4 flex gap-2">
           <input
             type="text"
             value={userPrompt}
             onChange={(e) => setUserPrompt(e.target.value)}
-            placeholder="Type custom trip prompt (e.g. '1-day spice and boat heritage tour in Dubai')..."
+            placeholder="Describe your ideal trip (e.g. 'heritage boat tour' or 'fast adventure')..."
             className="flex-1 px-3.5 py-2.5 bg-[#FDFBF7] border-2 border-[#111827] rounded-xl font-mono text-xs text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1B3FFF] shadow-inner"
           />
           <button
@@ -241,9 +259,16 @@ export const ItineraryPlanner: React.FC = () => {
             className="px-4 py-2.5 bg-[#1B3FFF] text-white border-2 border-[#111827] rounded-xl font-mono font-black text-xs uppercase shadow-[2px_2px_0px_#111827] active:translate-x-0.5 active:translate-y-0.5 flex items-center space-x-1.5"
           >
             {isGenerating ? <Sparkles className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            <span className="hidden sm:inline">PARSE WITH AI</span>
+            <span className="hidden sm:inline">SMART PLAN</span>
           </button>
         </form>
+
+        {planToast && (
+          <div className="mt-2 p-2 bg-emerald-100 border-2 border-[#111827] rounded-xl text-emerald-900 text-xs font-mono font-bold flex items-center space-x-2 shadow-[2px_2px_0px_#111827]">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{planToast}</span>
+          </div>
+        )}
       </div>
 
       {/* Scoreboard & Reality Check Audit Panel */}

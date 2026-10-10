@@ -150,15 +150,15 @@ export const DUBAI_COMIC_STORIES: ComicStory[] = [
       },
       {
         panelNumber: 3,
-        narrativeCaption: 'GLOBAL TRADE CORRIDOR: CCJ TO DXB',
-        panelScene: 'Dhow trading routes connecting Dubai, Calicut (Kozhikode), and Bombay.',
+        narrativeCaption: 'GLOBAL TRADE CORRIDOR: MARITIME SILK ROUTE',
+        panelScene: 'Dhow trading routes connecting Dubai, Bombay, and the ports of East Africa.',
         illustrationEmoji: '🗺️',
         illustrationBgColor: '#ECFDF5',
         speechBubbles: [
           {
             speaker: 'Historian Archon',
             avatarEmoji: '🧐',
-            text: 'Pearls traveled via Calicut spice dhows to the Royal Courts of Europe and India, cementing the maritime corridor between Kerala and the Gulf.',
+            text: 'Pearls traveled via merchant dhows to the Royal Courts of Europe and India, cementing Dubai Creek as the nexus of Gulf maritime trade.',
             type: 'speech',
             pointerDirection: 'bottom-left'
           }
