@@ -13,7 +13,8 @@ import {
   Clock, 
   Layers, 
   Check,
-  ShieldCheck 
+  ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 import { ItineraryStop, ItineraryDay } from '../../types/itinerary';
 import { generateAIPlan } from '../../services/aiService';
@@ -22,6 +23,8 @@ import { PassportExpiryWidget } from '../passport/PassportExpiryWidget';
 
 interface ItineraryPlannerProps {
   onOpenMyths?: (city: string) => void;
+  onOpenComic?: (city: string) => void;
+  onNavigateToPass?: () => void;
   activeCity?: string;
 }
 
@@ -36,6 +39,8 @@ const INSPIRATION_CHIPS = [
 
 export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
   onOpenMyths,
+  onOpenComic,
+  onNavigateToPass,
   activeCity = 'Tokyo'
 }) => {
   const [days, setDays] = useState<ItineraryDay[]>([]);
@@ -59,7 +64,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
     if (!promptToUse.trim()) return;
 
     setIsGenerating(true);
-    setPlanToast('🤖 Gemini AI analyzing destination & drafting multi-day itinerary...');
+    setPlanToast('🤖 POYALO AI analyzing destination & drafting multi-day itinerary...');
 
     try {
       const plan = await generateAIPlan(promptToUse);
@@ -324,7 +329,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
                 POYALO • MULTI-DAY TRIP GENERATOR
               </span>
               <span className="text-xs font-mono font-bold text-gray-500">
-                Powered by Gemini AI
+                Powered by POYALO AI
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-display font-black text-[#111827] mt-1 tracking-tight">
@@ -404,6 +409,12 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
         )}
       </div>
 
+      {/* 180-Day Passport Expiry Home Screen Widget */}
+      <PassportExpiryWidget
+        initialDestination={countryName.toLowerCase().includes('japan') ? 'JP' : countryName.slice(0, 2).toUpperCase()}
+        onSavedToPass={onNavigateToPass}
+      />
+
       {/* STATE A: NO TRIPS YET (WELCOME HERO STATE) */}
       {days.length === 0 && !isGenerating && (
         <div className="bg-white border-[2.5px] border-[#111827] rounded-2xl p-8 text-center space-y-4 shadow-[4px_4px_0px_#111827]">
@@ -420,7 +431,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 max-w-lg mx-auto text-left">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 max-w-2xl mx-auto text-left">
             <div className="p-3 bg-[#FDFBF7] border border-gray-300 rounded-xl">
               <span className="text-xs font-display font-black text-[#1B3FFF] block">⏱️ TRANSIT AWARE</span>
               <p className="text-[10px] font-mono text-gray-600 mt-0.5">Calculates realistic travel buffer between attractions.</p>
@@ -432,6 +443,10 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
             <div className="p-3 bg-[#FDFBF7] border border-gray-300 rounded-xl">
               <span className="text-xs font-display font-black text-[#9333EA] block">🔮 MYTH POINTER</span>
               <p className="text-[10px] font-mono text-gray-600 mt-0.5">Debunks local stereotypes & etiquette customs.</p>
+            </div>
+            <div className="p-3 bg-[#FDFBF7] border border-gray-300 rounded-xl">
+              <span className="text-xs font-display font-black text-[#FF5722] block">📖 COMIC LORE</span>
+              <p className="text-[10px] font-mono text-gray-600 mt-0.5">Illustrated graphic novel adventures across history.</p>
             </div>
           </div>
         </div>
@@ -523,6 +538,29 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
             </div>
           )}
 
+          {/* Comic Lore Hook Banner for this Destination */}
+          <div className="bg-[#FF5722] text-white border-[2.5px] border-[#111827] rounded-xl p-4 shadow-[4px_4px_0px_#111827] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center space-x-1.5">
+                <BookOpen className="w-4 h-4 text-amber-300" />
+                <span className="font-mono font-black text-xs uppercase tracking-wide">
+                  COMIC NOVEL LORE • {currentCity.toUpperCase()}
+                </span>
+              </div>
+              <p className="text-[11px] font-mono text-orange-100">
+                Immerse in illustrated graphic novel adventures, character humor, and secret history in {currentCity}.
+              </p>
+            </div>
+
+            <button
+              onClick={() => onOpenComic && onOpenComic(currentCity)}
+              className="px-4 py-2.5 bg-white hover:bg-amber-100 text-[#111827] border-2 border-[#111827] rounded-xl font-display font-black text-xs uppercase tracking-wider shadow-[3px_3px_0px_#111827] flex items-center justify-center space-x-1.5 whitespace-nowrap active:translate-x-0.5 active:translate-y-0.5 transition-all min-h-[42px]"
+            >
+              <span>📖 READ {currentCity.toUpperCase()} COMIC NOVEL</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Myth Pointer Hook Banner for this Destination */}
           <div className="bg-[#9333EA] text-white border-[2.5px] border-[#111827] rounded-xl p-4 shadow-[4px_4px_0px_#111827] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="space-y-0.5">
@@ -568,6 +606,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
             <div className="animate-in fade-in duration-300">
               <PassportExpiryWidget 
                 initialDestination={countryName.toLowerCase().includes('japan') ? 'JP' : countryName.slice(0, 2).toUpperCase()} 
+                onSavedToPass={onNavigateToPass}
               />
             </div>
           )}

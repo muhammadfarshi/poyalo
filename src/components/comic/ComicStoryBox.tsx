@@ -70,7 +70,11 @@ function playComicSynth(type: 'pop' | 'chime' | 'whoosh' | 'splash' = 'pop') {
   }
 }
 
-export const ComicStoryBox: React.FC = () => {
+interface ComicStoryBoxProps {
+  initialCity?: string;
+}
+
+export const ComicStoryBox: React.FC<ComicStoryBoxProps> = ({ initialCity }) => {
   const [tone, setTone] = useState<ComicTone>('roast');
   const [era, setEra] = useState<EraLayer>('1800s');
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
@@ -87,6 +91,13 @@ export const ComicStoryBox: React.FC = () => {
   const speechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeStory = aiCustomStory || getComicForSelection(tone, era);
+
+  // If navigated from planner with a custom destination city, generate comic lore for it
+  useEffect(() => {
+    if (initialCity && initialCity.toLowerCase() !== 'dubai' && !lastCustomPrompt) {
+      handleGenerateCustomStory(undefined, `${initialCity} cultural lore and historic landmarks`);
+    }
+  }, [initialCity]);
 
   // Stop narration helper
   const stopNarration = () => {
@@ -231,7 +242,7 @@ export const ComicStoryBox: React.FC = () => {
     stopNarration();
     setIsGeneratingStory(true);
     setLastCustomPrompt(promptToUse);
-    setCacheToast('🎨 Gemini drafting worldwide 3-panel graphic novel...');
+    setCacheToast('🎨 POYALO AI drafting worldwide 3-panel graphic novel...');
 
     try {
       const generated = await generateAIComicStory(promptToUse, tone, era);

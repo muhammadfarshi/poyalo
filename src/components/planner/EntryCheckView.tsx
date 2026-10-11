@@ -11,7 +11,11 @@ import { PassportExpiryWidget } from '../passport/PassportExpiryWidget';
 
 export type EntrySubTab = 'matrix' | 'matcher' | 'stress';
 
-export const EntryCheckView: React.FC = () => {
+interface EntryCheckViewProps {
+  onNavigateToPass?: () => void;
+}
+
+export const EntryCheckView: React.FC<EntryCheckViewProps> = ({ onNavigateToPass }) => {
   const [activeSubTab, setActiveSubTab] = useState<EntrySubTab>('matrix');
 
   // Interactive offline document checklist
@@ -89,7 +93,7 @@ export const EntryCheckView: React.FC = () => {
         <div className="space-y-6">
           
           {/* Main Passport Expiry Interactive Widget */}
-          <PassportExpiryWidget />
+          <PassportExpiryWidget onSavedToPass={onNavigateToPass} />
 
           {/* Offline Immigration Document Checklist */}
           <div className="bg-white border-[2.5px] border-[#111827] rounded-2xl p-4 sm:p-5 shadow-[4px_4px_0px_#111827] space-y-3">

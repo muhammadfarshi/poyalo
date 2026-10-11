@@ -71,6 +71,11 @@ export const App: React.FC = () => {
     setActiveTab('myths');
   };
 
+  const handleOpenComicForCity = (city: string) => {
+    setCurrentCity(city);
+    setActiveTab('comic');
+  };
+
   const handleCloseWelcome = () => {
     setShowWelcome(false);
     try {
@@ -95,9 +100,16 @@ export const App: React.FC = () => {
           <ItineraryPlanner 
             activeCity={currentCity}
             onOpenMyths={handleOpenMythsForCity} 
+            onOpenComic={handleOpenComicForCity}
+            onNavigateToPass={() => setActiveTab('pass')}
           />
         )}
-        {activeTab === 'comic' && <ComicStoryBox />}
+        {activeTab === 'comic' && (
+          <ComicStoryBox 
+            key={currentCity}
+            initialCity={currentCity}
+          />
+        )}
         {activeTab === 'myths' && (
           <MythPointerView 
             key={currentCity}
@@ -106,7 +118,11 @@ export const App: React.FC = () => {
           />
         )}
         {activeTab === 'game' && <VGWorldGame onScoreUpdate={handleScoreUpdate} />}
-        {activeTab === 'entry' && <EntryCheckView />}
+        {activeTab === 'entry' && (
+          <EntryCheckView 
+            onNavigateToPass={() => setActiveTab('pass')}
+          />
+        )}
         {activeTab === 'pass' && (
           <BoardingPass 
             gameScore={gameScore} 

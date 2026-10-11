@@ -65,10 +65,10 @@ export async function generateAIPlan(userPrompt: string): Promise<GeneratedPlanR
       }
     }
   } catch {
-    // Fall back to direct Gemini call
+    // Fall back to direct POYALO AI call
   }
 
-  // 2. Direct Gemini 3.1 Flash Lite API Call
+  // 2. Direct POYALO AI API Call
   const systemPrompt = `You are a world-class travel planner for the POYALO app.
 The user wants an itinerary for: "${userPrompt}".
 Detect the destination city, country, and how many days they requested (e.g. "3 days in Tokyo" -> 3 days, "weekend in Rome" -> 2 days, or if unspecified default to 2 or 3 days). Maximum 5 days. For each day, create 3 to 4 distinct logically sequenced stops.
@@ -122,7 +122,7 @@ Ensure:
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Gemini API returned ${response.status}: ${errText}`);
+    throw new Error(`POYALO AI API returned ${response.status}: ${errText}`);
   }
 
   const data = await response.json();

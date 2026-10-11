@@ -79,7 +79,7 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
     ) || null;
   }, [selectedCity]);
 
-  // Auto-fetch with Gemini AI if a non-curated city is selected and not in custom cache
+  // Auto-fetch with POYALO AI if a non-curated city is selected and not in custom cache
   useEffect(() => {
     if (!resolvedCuratedKey && !customMyths[selectedCity] && selectedCity && selectedCity !== 'Worldwide') {
       let isMounted = true;
@@ -309,7 +309,7 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
             ) : (
               <>
                 <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>DEBUNK WITH GEMINI AI</span>
+                <span>DEBUNK WITH POYALO AI</span>
               </>
             )}
           </button>
@@ -360,7 +360,7 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
         <div className="bg-[#FEF3C7] border-[2.5px] border-[#111827] rounded-2xl p-6 text-center space-y-3 shadow-[4px_4px_0px_#111827] animate-pulse">
           <Sparkles className="w-8 h-8 mx-auto text-[#FF5722] animate-spin" />
           <h3 className="text-lg font-display font-black text-[#111827]">
-            Consulting Cultural Historians & Gemini 3.1 Flash Lite...
+            Consulting Cultural Historians & POYALO AI...
           </h3>
           <p className="text-xs font-mono text-gray-700">
             Debunking common tourist myths, dining misconceptions, and local etiquette realities for {customInput || selectedCity}.

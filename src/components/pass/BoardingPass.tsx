@@ -13,13 +13,26 @@ import {
   Plane,
   User,
   Calendar,
-  MapPin
+  MapPin,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 
 interface BoardingPassProps {
   gameScore: number;
   pearlsCollected: number;
   itineraryScore?: number;
+}
+
+export interface PassportSyncInfo {
+  nationality: string;
+  destinationCountry: string;
+  tripStartDate: string;
+  passportExpiryDate: string;
+  daysRemaining: number;
+  isValid: boolean;
+  visaStatus: string;
+  syncedAt: string;
 }
 
 interface PassData {
@@ -34,6 +47,7 @@ interface PassData {
   date: string;
   bookingRef: string;
   verificationStatus: string;
+  passportSync?: PassportSyncInfo;
 }
 
 const DEFAULT_PASS_DATA: PassData = {
@@ -116,7 +130,29 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
 
-  // Sync to localStorage
+  // Realtime listener for passport sync events
+  useEffect(() => {
+    const handlePassportSync = (e: any) => {
+      if (e.detail) {
+        setPassData(e.detail);
+      } else {
+        try {
+          const saved = localStorage.getItem('poyalo_boarding_pass');
+          if (saved) setPassData(JSON.parse(saved));
+        } catch {}
+      }
+    };
+
+    window.addEventListener('poyalo:passport-sync', handlePassportSync);
+    window.addEventListener('storage', handlePassportSync);
+
+    return () => {
+      window.removeEventListener('poyalo:passport-sync', handlePassportSync);
+      window.removeEventListener('storage', handlePassportSync);
+    };
+  }, []);
+
+  // Sync state changes to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('poyalo_boarding_pass', JSON.stringify(passData));
@@ -376,6 +412,61 @@ export const BoardingPass: React.FC<BoardingPassProps> = ({
             <p className="text-[9px] font-mono text-gray-500">Max 7kg overhead bin</p>
           </div>
         </div>
+
+        {/* Official 180-Day Passport Security Seal */}
+        {passData.passportSync ? (
+          <div className={`p-3.5 border-b-2 border-[#111827] flex items-center justify-between transition-colors ${
+            passData.passportSync.isValid ? 'bg-[#F0FDF4]' : 'bg-[#FEF2F2]'
+          }`}>
+            <div className="flex items-center space-x-2.5">
+              <span className="text-2xl flex-shrink-0">
+                {passData.passportSync.isValid ? '🛡️' : '🚨'}
+              </span>
+              <div>
+                <div className="flex items-center space-x-1.5 flex-wrap">
+                  <span className="text-[9px] font-mono font-black uppercase tracking-wider text-[#111827]">
+                    {passData.passportSync.isValid ? '180-DAY IMMIGRATION COMPLIANCE SEAL' : 'BORDER CONTROL WARNING'}
+                  </span>
+                  <span className={`text-[8px] font-mono font-black px-1.5 py-0.2 rounded border border-[#111827] ${
+                    passData.passportSync.isValid ? 'bg-[#10B981] text-white' : 'bg-[#EF4444] text-white animate-pulse'
+                  }`}>
+                    {passData.passportSync.isValid ? 'PASSED' : 'DENIED'}
+                  </span>
+                </div>
+                <p className="text-[11px] font-mono font-black text-[#111827] mt-0.5">
+                  {passData.passportSync.daysRemaining} Days Buffer • {passData.passportSync.nationality} ➔ {passData.passportSync.destinationCountry}
+                </p>
+                <span className="text-[9px] font-mono text-gray-500">
+                  Verified via POYALO Deterministic Engine
+                </span>
+              </div>
+            </div>
+
+            <div className="text-right flex-shrink-0">
+              <span className="text-[8px] font-mono font-bold text-gray-500 uppercase block">VISA ADVISORY</span>
+              <span className="text-[10px] font-mono font-black text-[#1B3FFF] max-w-[90px] truncate block">
+                {passData.passportSync.visaStatus}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 bg-[#FEF3C7] border-b-2 border-[#111827] flex items-center justify-between text-amber-950">
+            <div className="flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-amber-800 flex-shrink-0" />
+              <div>
+                <span className="text-[10px] font-mono font-black block">
+                  PASSPORT NOT SYNCED YET
+                </span>
+                <span className="text-[9px] font-mono text-amber-900">
+                  Verify 180-day rule on Visa Check tab to stamp ticket
+                </span>
+              </div>
+            </div>
+            <span className="text-[8px] font-mono font-black bg-white px-2 py-0.5 rounded border border-amber-300 uppercase">
+              1-TAP SYNC
+            </span>
+          </div>
+        )}
 
         {/* Perforated Tear Line with Circular Notches */}
         <div className="relative py-2 bg-white flex items-center justify-center">

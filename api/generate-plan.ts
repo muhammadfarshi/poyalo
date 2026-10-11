@@ -62,7 +62,7 @@ Ensure coordinates (lat, lng) are real and accurate for the location. Sequence s
 
     if (!response.ok) {
       const err = await response.text();
-      return res.status(response.status).json({ error: 'Gemini upstream error', details: err });
+      return res.status(response.status).json({ error: 'POYALO AI upstream error', details: err });
     }
 
     const data = await response.json();
