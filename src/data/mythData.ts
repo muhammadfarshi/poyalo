@@ -275,6 +275,44 @@ export const CURATED_MYTHS: Record<string, TravelMyth[]> = {
       insiderTip: 'London\'s world-renowned museums (British Museum, Natural History Museum, Tate Modern) are 100% free of charge to enter.',
       severity: 'fun'
     }
+  ],
+  'Kozhikode': [
+    {
+      id: 'koz-1',
+      city: 'Kozhikode',
+      country: 'India (Malabar Coast)',
+      category: 'humans',
+      categoryLabel: 'Hospitality & Honesty',
+      emoji: '🛺',
+      myth: 'Auto-rickshaw drivers in Indian cities always overcharge tourists and refuse meters.',
+      reality: 'Kozhikode auto drivers are legendary across India for strict honesty: they automatically turn on the digital meter, return forgotten items, and happily recommend the best local eateries.',
+      insiderTip: 'Pay the exact metered fare; rounding up is welcomed, but drivers take genuine pride in transparent fares and will hand back exact change.',
+      severity: 'fun'
+    },
+    {
+      id: 'koz-2',
+      city: 'Kozhikode',
+      country: 'India (Malabar Coast)',
+      category: 'food',
+      categoryLabel: 'Malabar Biryani & Sulaimani',
+      emoji: '🍚',
+      myth: 'All Indian biryani is overwhelmingly fiery red and uses long basmati rice.',
+      reality: 'Authentic Kozhikode/Thalassery Biryani is made with fragrant short-grain Khaima (Jeerakasala) rice, gentle spices, pure ghee, fried cashews, and raisins. It is celebrated for delicate aroma rather than chili heat.',
+      insiderTip: 'Order authentic mutton or chicken biryani at Paragon or Rahmath, and conclude your feast with a piping-hot Sulaimani (black spiced tea with mint).',
+      severity: 'fun'
+    },
+    {
+      id: 'koz-3',
+      city: 'Kozhikode',
+      country: 'India (Malabar Coast)',
+      category: 'traditional',
+      categoryLabel: 'SM Street & Halwa Lore',
+      emoji: '🍯',
+      myth: 'SM Street (Sweetmeat Street) is just a standard shopping market.',
+      reality: 'Mittayi Theruvu has been an active pedestrian trading alley since the Zamorin era, where sweetmakers cooked translucent black wheat halwa in coconut oil for Arab and European merchants for over 500 years.',
+      insiderTip: 'Walk through Sankaran Bakery on SM Street for free tastings of authentic tender coconut and black halwa served on fresh banana leaves.',
+      severity: 'fun'
+    }
   ]
 };
 
@@ -284,5 +322,6 @@ export const POPULAR_DESTINATIONS = [
   { name: 'Rome', country: 'Italy', flag: '🇮🇹' },
   { name: 'Paris', country: 'France', flag: '🇫🇷' },
   { name: 'Bangkok', country: 'Thailand', flag: '🇹🇭' },
-  { name: 'London', country: 'United Kingdom', flag: '🇬🇧' }
+  { name: 'London', country: 'United Kingdom', flag: '🇬🇧' },
+  { name: 'Kozhikode', country: 'India (Malabar)', flag: '🇮🇳' }
 ];

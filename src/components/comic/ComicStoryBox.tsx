@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Volume2, 
-  VolumeX, 
   Sparkles, 
   Download, 
   Check, 
@@ -9,11 +8,10 @@ import {
   BookOpen, 
   Send, 
   RotateCcw,
-  Play,
   Square
 } from 'lucide-react';
 import { ComicStory, ComicTone, EraLayer } from '../../types/comic';
-import { getComicForSelection } from '../../data/mockComics';
+import { getComicForCityToneEra, COMIC_CITIES } from '../../data/mockComics';
 import { generateAIComicStory } from '../../services/aiService';
 import { ComicPanelItem } from './ComicPanelItem';
 
@@ -75,11 +73,15 @@ interface ComicStoryBoxProps {
 }
 
 export const ComicStoryBox: React.FC<ComicStoryBoxProps> = ({ initialCity }) => {
+  const [selectedCity, setSelectedCity] = useState<string>(() => {
+    if (initialCity && initialCity.trim() !== '') return initialCity.trim();
+    return 'Dubai';
+  });
   const [tone, setTone] = useState<ComicTone>('roast');
   const [era, setEra] = useState<EraLayer>('1800s');
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
   const [activePanelIndex, setActivePanelIndex] = useState<number>(-1);
-  const [isCachedOffline, setIsCachedOffline] = useState<boolean>(true);
+  const [, setIsCachedOffline] = useState<boolean>(true);
   const [cacheToast, setCacheToast] = useState<string>('');
   const [customStoryPrompt, setCustomStoryPrompt] = useState<string>('');
   const [lastCustomPrompt, setLastCustomPrompt] = useState<string>('');
@@ -90,12 +92,13 @@ export const ComicStoryBox: React.FC<ComicStoryBoxProps> = ({ initialCity }) => 
   const isPlayingRef = useRef<boolean>(false);
   const speechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const activeStory = aiCustomStory || getComicForSelection(tone, era);
+  const activeStory = aiCustomStory || getComicForCityToneEra(selectedCity, tone, era);
 
-  // If navigated from planner with a custom destination city, generate comic lore for it
+  // If initialCity changes from parent
   useEffect(() => {
-    if (initialCity && initialCity.toLowerCase() !== 'dubai' && !lastCustomPrompt) {
-      handleGenerateCustomStory(undefined, `${initialCity} cultural lore and historic landmarks`);
+    if (initialCity && initialCity.trim() !== '') {
+      setSelectedCity(initialCity.trim());
+      setAiCustomStory(null);
     }
   }, [initialCity]);
 
@@ -234,6 +237,15 @@ export const ComicStoryBox: React.FC<ComicStoryBoxProps> = ({ initialCity }) => 
     setTimeout(() => setCacheToast(''), 3500);
   };
 
+  const handleSelectCity = (cityName: string) => {
+    stopNarration();
+    setSelectedCity(cityName);
+    setAiCustomStory(null);
+    playComicSynth('pop');
+    setCacheToast(`📖 Loaded verified historical comic lore for ${cityName}!`);
+    setTimeout(() => setCacheToast(''), 3000);
+  };
+
   const handleGenerateCustomStory = async (e?: React.FormEvent, customPrompt?: string) => {
     if (e && e.preventDefault) e.preventDefault();
     const promptToUse = customPrompt || customStoryPrompt;
@@ -252,7 +264,7 @@ export const ComicStoryBox: React.FC<ComicStoryBoxProps> = ({ initialCity }) => 
       setCustomStoryPrompt('');
     } catch (err: any) {
       console.warn('Comic generation failed:', err);
-      setCacheToast('⚠️ Story generation failed, showing classic lore.');
+      setCacheToast('⚠️ AI connection unavailable, displaying verified historical lore.');
     } finally {
       setIsGeneratingStory(false);
       setTimeout(() => setCacheToast(''), 4000);
@@ -301,16 +313,45 @@ export const ComicStoryBox: React.FC<ComicStoryBoxProps> = ({ initialCity }) => 
   };
 
   const tones: { id: ComicTone; label: string; icon: string; desc: string }[] = [
-    { id: 'roast', label: 'Roast Comic', icon: '🔥', desc: 'Satirical political caricature' },
+    { id: 'roast', label: 'Roast Comic', icon: '🔥', desc: 'Satirical caricature & tourist traps' },
     { id: 'storyteller', label: 'Storyteller', icon: '📖', desc: 'Dramatic cinematic novel' },
     { id: 'professor', label: 'Professor', icon: '🎓', desc: 'Historical schematics & facts' },
     { id: 'kid', label: 'Kid Comic', icon: '🧸', desc: 'Saturday morning cartoon strip' }
   ];
 
+  // Dynamic Era label computation tailored to the active city
+  const getEraMetadata = (eraId: EraLayer): { label: string; year: string } => {
+    const c = (selectedCity || '').toLowerCase();
+    if (c.includes('tokyo') || c.includes('japan')) {
+      if (eraId === '1800s') return { label: 'Edo Bakumatsu', year: '1842' };
+      if (eraId === '1950s') return { label: 'Showa Rebirth', year: '1958' };
+      return { label: 'Cyber Tokyo', year: '2026' };
+    }
+    if (c.includes('paris') || c.includes('france')) {
+      if (eraId === '1800s') return { label: 'Haussmann Avenues', year: '1853' };
+      if (eraId === '1950s') return { label: 'Existentialist Cafés', year: '1946' };
+      return { label: 'Tradition Law', year: '2026' };
+    }
+    if (c.includes('rome') || c.includes('italy')) {
+      if (eraId === '1800s') return { label: 'Forum Cow Pasture', year: '1840' };
+      if (eraId === '1950s') return { label: 'Cinecittà Golden Age', year: '1953' };
+      return { label: 'Metro C Digs', year: '2026' };
+    }
+    if (c.includes('kozhikode') || c.includes('calicut') || c.includes('kerala')) {
+      if (eraId === '1800s') return { label: 'Beypore Khalasis', year: '1887' };
+      if (eraId === '1950s') return { label: 'Dhow Corridor', year: '1952' };
+      return { label: 'UNESCO Literature', year: '2026' };
+    }
+    // Default: Dubai
+    if (eraId === '1800s') return { label: 'Pearl Diving', year: '1880' };
+    if (eraId === '1950s') return { label: 'Creek Dredging', year: '1954' };
+    return { label: 'VG World Era', year: '2026' };
+  };
+
   const eras: { id: EraLayer; label: string; year: string }[] = [
-    { id: '1800s', label: 'Pearl Era', year: '1880' },
-    { id: '1950s', label: 'Creek Dredging', year: '1954' },
-    { id: 'modern', label: 'VG World Era', year: '2026' }
+    { id: '1800s', ...getEraMetadata('1800s') },
+    { id: '1950s', ...getEraMetadata('1950s') },
+    { id: 'modern', ...getEraMetadata('modern') }
   ];
 
   return (
@@ -430,6 +471,41 @@ export const ComicStoryBox: React.FC<ComicStoryBoxProps> = ({ initialCity }) => 
             <span>{cacheToast}</span>
           </div>
         )}
+      </div>
+
+      {/* Verified Historical City Archives Switcher */}
+      <div className="bg-[#FFFFFF] border-2 border-[#111827] rounded-2xl p-3 sm:p-4 shadow-[3px_3px_0px_#111827]">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-mono font-black text-[#111827] flex items-center space-x-1.5">
+            <span>🌍</span>
+            <span>HISTORICAL CITY ARCHIVES (100% OFFLINE LORE):</span>
+          </span>
+          <span className="text-[10px] font-mono font-bold text-gray-500 uppercase">
+            {COMIC_CITIES.length} Grounded Historical Cities
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {COMIC_CITIES.map((c) => {
+            const isSelected = selectedCity.toLowerCase() === c.name.toLowerCase() && !aiCustomStory;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => handleSelectCity(c.name)}
+                className={`px-3 py-2 rounded-xl border-2 border-[#111827] text-xs font-mono font-black flex items-center space-x-1.5 whitespace-nowrap transition-all flex-shrink-0 ${
+                  isSelected
+                    ? 'bg-[#1B3FFF] text-white shadow-[2.5px_2.5px_0px_#111827] -translate-y-0.5'
+                    : 'bg-[#FDFBF7] text-gray-800 hover:bg-gray-100 shadow-[1px_1px_0px_#111827]'
+                }`}
+              >
+                <span className="text-sm">{c.flag}</span>
+                <span>{c.name}</span>
+                <span className="text-[10px] opacity-75 font-normal">({c.landmark.split('&')[0].trim()})</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Control Dials: Tone Dial & Era Layer */}

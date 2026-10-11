@@ -1,4 +1,4 @@
-const CACHE_NAME = 'poyalo-v1';
+const CACHE_NAME = 'poyalo-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

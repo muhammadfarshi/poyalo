@@ -103,6 +103,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
   const speedBoostExpiresRef = useRef<number>(0);
   const teleportTargetRef = useRef<{ x: number; y: number; z: number; landmarkName: string } | null>(null);
   const activeWaypointRef = useRef<WorldLandmark | null>(null);
+  const updateAtmosphereRef = useRef<((mode: TimeOfDay) => void) | null>(null);
 
   // Mobile / Joystick vector & keys
   const moveVectorRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -112,6 +113,13 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
   useEffect(() => {
     activeWaypointRef.current = activeWaypoint;
   }, [activeWaypoint]);
+
+  // Fast atmosphere sync without rebuilding entire WebGL scene
+  useEffect(() => {
+    if (updateAtmosphereRef.current) {
+      updateAtmosphereRef.current(timeOfDay);
+    }
+  }, [timeOfDay]);
 
   // Remote players in world
   const remotePlayersRef = useRef<RemotePlayer[]>([
@@ -295,6 +303,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         lanternCamp.intensity = 0;
       }
     };
+    updateAtmosphereRef.current = updateAtmosphere;
     updateAtmosphere(timeOfDay);
 
     // 5. SHARED GEOMETRIES & MATERIALS FOR CORE OPTIMIZATION
@@ -1290,14 +1299,17 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
+      updateAtmosphereRef.current = null;
     };
-  }, [timeOfDay, onScoreUpdate]);
+  }, [onScoreUpdate]);
 
   const pearlsCollected = collectibles.filter(c => c.type === 'pearl' && c.collected).length;
   const totalPearls = collectibles.filter(c => c.type === 'pearl').length;
 
   return (
-    <div className="relative w-full h-[calc(100vh-140px)] min-h-[480px] bg-[#87CEEB] overflow-hidden rounded-2xl border-[2.5px] border-[#111827] shadow-[4px_4px_0px_#111827]">
+    <div className={`relative w-full h-[calc(100vh-140px)] min-h-[480px] overflow-hidden rounded-2xl border-[2.5px] border-[#111827] shadow-[4px_4px_0px_#111827] transition-colors duration-500 ${
+      timeOfDay === 'night' ? 'bg-[#0F172A]' : timeOfDay === 'sunset' ? 'bg-[#F97316]' : 'bg-[#87CEEB]'
+    }`}>
       
       {/* 3D WebGL Canvas Container */}
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
