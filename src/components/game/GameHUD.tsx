@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, Trophy, Users, X, Check, BookOpen, Sun, Sunset, Moon, Zap, ArrowUp } from 'lucide-react';
+import { Sparkles, Trophy, Users, X, Check, BookOpen, Sun, Sunset, Moon, Zap, ArrowUp, Search, Compass, Navigation } from 'lucide-react';
 import { CollectibleItem, TravelEmote } from '../../types/game';
+import { WorldLandmark } from '../../data/worldLandmarks';
 
 interface GameHUDProps {
   score: number;
@@ -16,6 +17,10 @@ interface GameHUDProps {
   speedBoostActive?: boolean;
   onJump?: () => void;
   activeBadge?: { text: string; icon: string } | null;
+  onOpenPlaceSearch?: () => void;
+  activeWaypoint?: WorldLandmark | null;
+  waypointDistance?: number;
+  onClearWaypoint?: () => void;
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({
@@ -31,7 +36,11 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onToggleTimeOfDay,
   speedBoostActive = false,
   onJump,
-  activeBadge
+  activeBadge,
+  onOpenPlaceSearch,
+  activeWaypoint,
+  waypointDistance,
+  onClearWaypoint
 }) => {
   const [showEmotePicker, setShowEmotePicker] = useState(false);
 
@@ -76,9 +85,21 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
-      {/* Top Right: Time of Day Atmosphere Switcher & Controls */}
+      {/* Top Right: Time of Day Atmosphere Switcher, Search Places & Controls */}
       <div className="absolute top-3 right-3 z-30 flex items-center space-x-2 pointer-events-auto">
         
+        {/* Search Places Button */}
+        {onOpenPlaceSearch && (
+          <button
+            onClick={onOpenPlaceSearch}
+            title="Search Places, Landmarks & GPS Teleports"
+            className="px-3 py-1.5 bg-[#FF5722] hover:bg-[#E64A19] text-white border-2 border-[#111827] rounded-xl font-display font-black text-xs uppercase shadow-[2.5px_2.5px_0px_#111827] active:translate-x-0.5 active:translate-y-0.5 flex items-center space-x-1.5 transition-all"
+          >
+            <Search className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>PLACES</span>
+          </button>
+        )}
+
         {/* Time of Day Toggle Button */}
         {onToggleTimeOfDay && (
           <button
@@ -115,9 +136,31 @@ export const GameHUD: React.FC<GameHUDProps> = ({
         </div>
       </div>
 
+      {/* Active GPS Waypoint Compass Banner */}
+      {activeWaypoint && (
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 bg-white border-2 border-[#111827] rounded-full shadow-[3px_3px_0px_#111827] font-mono font-black text-xs flex items-center space-x-2 text-[#111827] pointer-events-auto">
+          <Compass className="w-4 h-4 text-[#1B3FFF] animate-spin flex-shrink-0" />
+          <span className="truncate max-w-[160px] sm:max-w-xs">
+            {activeWaypoint.emoji} {activeWaypoint.name.toUpperCase()}
+          </span>
+          <span className="bg-[#10B981] text-white text-[10px] px-2 py-0.5 rounded-full border border-[#111827]">
+            {waypointDistance ?? 0}M
+          </span>
+          {onClearWaypoint && (
+            <button
+              onClick={onClearWaypoint}
+              className="text-gray-400 hover:text-red-600 p-0.5 ml-0.5"
+              title="Clear GPS Waypoint"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Active Boost / Event Alert Banner */}
       {speedBoostActive && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1 bg-[#FBBF24] text-[#111827] border-2 border-[#111827] rounded-full shadow-[3px_3px_0px_#111827] font-mono font-black text-xs flex items-center space-x-1.5 animate-pulse pointer-events-none">
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1 bg-[#FBBF24] text-[#111827] border-2 border-[#111827] rounded-full shadow-[3px_3px_0px_#111827] font-mono font-black text-xs flex items-center space-x-1.5 animate-pulse pointer-events-none">
           <Zap className="w-4 h-4 text-[#1B3FFF] fill-[#1B3FFF]" />
           <span>⚡ 1.8X SPEED BOOST ACTIVATED!</span>
         </div>

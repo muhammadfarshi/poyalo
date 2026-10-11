@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { INITIAL_VG_WORLD_COLLECTIBLES } from '../../data/gameAssets';
+import { WORLD_LANDMARKS, WorldLandmark } from '../../data/worldLandmarks';
 import { CollectibleItem, RemotePlayer, TravelEmote } from '../../types/game';
 import { VirtualJoystick } from './VirtualJoystick';
 import { GameHUD } from './GameHUD';
+import { PlaceSearchModal } from './PlaceSearchModal';
 
 interface VGWorldGameProps {
   onScoreUpdate?: (score: number, collectedCount: number) => void;
@@ -12,7 +14,7 @@ interface VGWorldGameProps {
 type TimeOfDay = 'day' | 'sunset' | 'night';
 
 // Web Audio API Sound Effects Synthesizer (100% Offline)
-function playSoundEffect(type: 'pickup' | 'jump' | 'bounce' | 'boost' | 'chest') {
+function playSoundEffect(type: 'pickup' | 'jump' | 'bounce' | 'boost' | 'chest' | 'teleport') {
   try {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
@@ -32,7 +34,6 @@ function playSoundEffect(type: 'pickup' | 'jump' | 'bounce' | 'boost' | 'chest')
       osc.start(now);
       osc.stop(now + 0.18);
     } else if (type === 'bounce') {
-      // Comic boing sound
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(180, now);
       osc.frequency.exponentialRampToValueAtTime(750, now + 0.12);
@@ -42,7 +43,6 @@ function playSoundEffect(type: 'pickup' | 'jump' | 'bounce' | 'boost' | 'chest')
       osc.start(now);
       osc.stop(now + 0.35);
     } else if (type === 'boost') {
-      // Supersonic whoosh
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(220, now);
       osc.frequency.exponentialRampToValueAtTime(1100, now + 0.18);
@@ -52,29 +52,31 @@ function playSoundEffect(type: 'pickup' | 'jump' | 'bounce' | 'boost' | 'chest')
       osc.start(now);
       osc.stop(now + 0.4);
     } else if (type === 'chest') {
-      // Fanfare chime
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, now); // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
-      osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
-      osc.frequency.setValueAtTime(1046.50, now + 0.24); // C6
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.24);
       gain.gain.setValueAtTime(0.35, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
       osc.start(now);
       osc.stop(now + 0.55);
+    } else if (type === 'teleport') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(1350, now + 0.25);
+      gain.gain.setValueAtTime(0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.38);
+      osc.start(now);
+      osc.stop(now + 0.38);
     } else {
-      // Pickup chime
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(587.33, now); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
+      osc.frequency.setValueAtTime(587.33, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12);
       gain.gain.setValueAtTime(0.3, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       osc.start(now);
       osc.stop(now + 0.3);
     }
-  } catch {
-    // Audio restricted or autoplay blocked
-  }
+  } catch {}
 }
 
 export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
@@ -90,15 +92,28 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
   const [speedBoostActive, setSpeedBoostActive] = useState<boolean>(false);
   const [activeBadge, setActiveBadge] = useState<{ text: string; icon: string } | null>(null);
 
-  // Jump trigger ref for mobile / keyboard
+  // Place Search & Waypoint state
+  const [showPlaceSearch, setShowPlaceSearch] = useState<boolean>(false);
+  const [activeWaypoint, setActiveWaypoint] = useState<WorldLandmark | null>(null);
+  const [playerCoords, setPlayerCoords] = useState<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
+  const [waypointDistance, setWaypointDistance] = useState<number>(0);
+
+  // Jump and Teleport refs
   const jumpTriggerRef = useRef<boolean>(false);
   const speedBoostExpiresRef = useRef<number>(0);
+  const teleportTargetRef = useRef<{ x: number; y: number; z: number; landmarkName: string } | null>(null);
+  const activeWaypointRef = useRef<WorldLandmark | null>(null);
 
-  // Mobile / Joystick vector
+  // Mobile / Joystick vector & keys
   const moveVectorRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const keysPressed = useRef<{ [key: string]: boolean }>({});
 
-  // Remote players
+  // Sync ref
+  useEffect(() => {
+    activeWaypointRef.current = activeWaypoint;
+  }, [activeWaypoint]);
+
+  // Remote players in world
   const remotePlayersRef = useRef<RemotePlayer[]>([
     {
       id: 'usr_rohan',
@@ -108,16 +123,15 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       y: 0.8,
       z: -4.0,
       rotationY: 0.5,
-      currentEmote: 'Marhaba! 👋',
-      emoteExpiresAt: Date.now() + 10000
+      currentEmote: 'Marhaba! 👋'
     },
     {
       id: 'usr_fatima',
-      displayName: 'Fatima (Deira)',
+      displayName: 'Fatima (Souk Explorer)',
       avatarColor: '#FF5722',
       x: -6.0,
       y: 0.8,
-      z: 7.0,
+      z: 26.0,
       rotationY: 1.2
     },
     {
@@ -125,10 +139,19 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       displayName: 'Alex (Bridge Explorer)',
       avatarColor: '#10B981',
       x: 26.0,
-      y: 3.2,
+      y: 3.6,
       z: 2.0,
       rotationY: -1.5,
       currentEmote: 'Crossing the Creek! 🌉'
+    },
+    {
+      id: 'usr_zayn',
+      displayName: 'Zayn (Oasis Wanderer)',
+      avatarColor: '#EC4899',
+      x: 48.0,
+      y: 0.8,
+      z: -34.0,
+      rotationY: -0.8
     }
   ]);
 
@@ -151,12 +174,20 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     setTimeOfDay(prev => prev === 'day' ? 'sunset' : prev === 'sunset' ? 'night' : 'day');
   }, []);
 
-  // Show a temporary comic badge decal
   const showBadge = (text: string, icon: string) => {
     setActiveBadge({ text, icon });
     setTimeout(() => {
       setActiveBadge(prev => prev?.text === text ? null : prev);
     }, 2400);
+  };
+
+  const handleTeleportTo = (landmark: WorldLandmark) => {
+    teleportTargetRef.current = {
+      x: landmark.coords.x,
+      y: landmark.coords.y,
+      z: landmark.coords.z + (landmark.coords.z > 0 ? -4.5 : 4.5),
+      landmarkName: landmark.name
+    };
   };
 
   useEffect(() => {
@@ -166,18 +197,22 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     // 1. SCENE SETUP
     const scene = new THREE.Scene();
     scene.background = new THREE.Color('#87CEEB');
-    scene.fog = new THREE.FogExp2('#87CEEB', 0.009);
+    scene.fog = new THREE.FogExp2('#87CEEB', 0.0075);
 
     // 2. CAMERA SETUP
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || (window.innerHeight - 130);
-    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 600);
+    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 750);
     const targetCameraPos = new THREE.Vector3();
 
-    // 3. RENDERER SETUP
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // 3. OPTIMIZED RENDERER
+    const isMobileScreen = width < 768;
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: !isMobileScreen, // Enable MSAA on desktop, fast FXAA on mobile
+      powerPreference: 'high-performance' 
+    });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileScreen ? 1.5 : 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
@@ -190,116 +225,137 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     scene.add(hemiLight);
 
     const sunLight = new THREE.DirectionalLight('#F59E0B', 2.0);
-    sunLight.position.set(35, 45, 25);
+    sunLight.position.set(45, 55, 30);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 1024;
-    sunLight.shadow.mapSize.height = 1024;
+    sunLight.shadow.mapSize.width = isMobileScreen ? 512 : 1024;
+    sunLight.shadow.mapSize.height = isMobileScreen ? 512 : 1024;
     sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 280;
-    sunLight.shadow.camera.left = -90;
-    sunLight.shadow.camera.right = 90;
-    sunLight.shadow.camera.top = 90;
-    sunLight.shadow.camera.bottom = -90;
-    sunLight.shadow.bias = -0.0005;
+    sunLight.shadow.camera.far = 340;
+    sunLight.shadow.camera.left = -110;
+    sunLight.shadow.camera.right = 110;
+    sunLight.shadow.camera.top = 110;
+    sunLight.shadow.camera.bottom = -110;
+    sunLight.shadow.bias = -0.0004;
     scene.add(sunLight);
 
-    // Night Point Lights for Atmosphere
-    const nightLightGroup = new THREE.Group();
-    const lanternLight1 = new THREE.PointLight('#FBBF24', 0, 18);
-    lanternLight1.position.set(24, 4.5, 0); // On the bridge
-    nightLightGroup.add(lanternLight1);
+    // Night Point Lights
+    const lanternGroup = new THREE.Group();
+    const lanternBridge = new THREE.PointLight('#FBBF24', 0, 20);
+    lanternBridge.position.set(26, 4.8, 0);
+    lanternGroup.add(lanternBridge);
 
-    const lanternLight2 = new THREE.PointLight('#38BDF8', 0, 25);
-    lanternLight2.position.set(30, 8, -50); // Burj Khalifa base
-    nightLightGroup.add(lanternLight2);
-    scene.add(nightLightGroup);
+    const lanternBurj = new THREE.PointLight('#38BDF8', 0, 30);
+    lanternBurj.position.set(30, 8, -50);
+    lanternGroup.add(lanternBurj);
 
-    // Update Atmosphere Lighting helper
+    const lanternSouk = new THREE.PointLight('#F59E0B', 0, 22);
+    lanternSouk.position.set(-6, 3.5, 28);
+    lanternGroup.add(lanternSouk);
+
+    const lanternCamp = new THREE.PointLight('#EA580C', 0, 22);
+    lanternCamp.position.set(-50, 2.5, -55);
+    lanternGroup.add(lanternCamp);
+    scene.add(lanternGroup);
+
+    // Atmosphere Lighting Switcher
     const updateAtmosphere = (mode: TimeOfDay) => {
       if (mode === 'sunset') {
         scene.background = new THREE.Color('#F97316');
-        scene.fog = new THREE.FogExp2('#EA580C', 0.011);
+        scene.fog = new THREE.FogExp2('#EA580C', 0.009);
         ambientLight.color.set('#FEF08A');
         ambientLight.intensity = 0.7;
         sunLight.color.set('#EF4444');
         sunLight.intensity = 2.4;
-        lanternLight1.intensity = 1.0;
-        lanternLight2.intensity = 0.5;
+        lanternBridge.intensity = 1.2;
+        lanternBurj.intensity = 0.8;
+        lanternSouk.intensity = 1.0;
+        lanternCamp.intensity = 1.5;
       } else if (mode === 'night') {
         scene.background = new THREE.Color('#0F172A');
-        scene.fog = new THREE.FogExp2('#0F172A', 0.012);
+        scene.fog = new THREE.FogExp2('#0F172A', 0.011);
         ambientLight.color.set('#312E81');
         ambientLight.intensity = 0.45;
         sunLight.color.set('#6366F1');
         sunLight.intensity = 0.6;
-        lanternLight1.intensity = 2.5;
-        lanternLight2.intensity = 3.0;
+        lanternBridge.intensity = 2.8;
+        lanternBurj.intensity = 3.5;
+        lanternSouk.intensity = 3.0;
+        lanternCamp.intensity = 3.2;
       } else {
         // Day
         scene.background = new THREE.Color('#87CEEB');
-        scene.fog = new THREE.FogExp2('#87CEEB', 0.009);
+        scene.fog = new THREE.FogExp2('#87CEEB', 0.0075);
         ambientLight.color.set('#FFFBEB');
         ambientLight.intensity = 0.85;
         sunLight.color.set('#F59E0B');
         sunLight.intensity = 2.0;
-        lanternLight1.intensity = 0;
-        lanternLight2.intensity = 0;
+        lanternBridge.intensity = 0;
+        lanternBurj.intensity = 0;
+        lanternSouk.intensity = 0;
+        lanternCamp.intensity = 0;
       }
     };
-
     updateAtmosphere(timeOfDay);
 
-    // 5. GROUND & EXPANDED WORLD (240 x 240 m)
-    const groundGeo = new THREE.PlaneGeometry(260, 260);
-    const groundMat = new THREE.MeshLambertMaterial({ color: '#E8D2A6' });
-    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+    // 5. SHARED GEOMETRIES & MATERIALS FOR CORE OPTIMIZATION
+    const sharedSandMat = new THREE.MeshLambertMaterial({ color: '#E8D2A6' });
+    const sharedDuneMat = new THREE.MeshLambertMaterial({ color: '#D97706' });
+    const sharedRoadMat = new THREE.MeshLambertMaterial({ color: '#374151' });
+    const sharedWoodMat = new THREE.MeshLambertMaterial({ color: '#78350F' });
+    const sharedBuildingMat = new THREE.MeshLambertMaterial({ color: '#D4B996' });
+    const sharedFoliageMat = new THREE.MeshLambertMaterial({ color: '#15803D' });
+    const sharedGoldMat = new THREE.MeshLambertMaterial({ color: '#D4AF37' });
+    const sharedSilverMat = new THREE.MeshLambertMaterial({ color: '#E2E8F0' });
+
+    // 6. EXPANDED GROUND PLANE (300m x 300m)
+    const groundGeo = new THREE.PlaneGeometry(320, 320);
+    const groundMesh = new THREE.Mesh(groundGeo, sharedSandMat);
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add(groundMesh);
 
     // Subtle Neo-Brutalist Grid
-    const gridHelper = new THREE.GridHelper(260, 130, '#d1d5db', '#d1d5db');
+    const gridHelper = new THREE.GridHelper(320, 160, '#9ca3af', '#d1d5db');
     gridHelper.position.y = 0.02;
-    (gridHelper.material as THREE.Material).opacity = 0.2;
+    (gridHelper.material as THREE.Material).opacity = 0.22;
     (gridHelper.material as THREE.Material).transparent = true;
     scene.add(gridHelper);
 
-    // 6. ROLLING SAND DUNES (Western Edge)
+    // 7. ROLLING SAND DUNES (Western Dune Sea)
     const createDune = (x: number, z: number, r: number, h: number) => {
-      const duneGeo = new THREE.ConeGeometry(r, h, 16);
-      const duneMat = new THREE.MeshLambertMaterial({ color: '#D97706' });
-      const dune = new THREE.Mesh(duneGeo, duneMat);
+      const duneGeo = new THREE.ConeGeometry(r, h, 14);
+      const dune = new THREE.Mesh(duneGeo, sharedDuneMat);
       dune.position.set(x, h / 2, z);
-      dune.scale.set(1.4, 0.4, 1.0);
+      dune.scale.set(1.5, 0.45, 1.1);
       dune.receiveShadow = true;
       dune.castShadow = true;
       return dune;
     };
-    scene.add(createDune(-45, -50, 18, 5.0));
-    scene.add(createDune(-40, -65, 22, 6.5));
-    scene.add(createDune(-50, 35, 20, 5.5));
+    scene.add(createDune(-45, -50, 20, 5.5));
+    scene.add(createDune(-40, -70, 24, 7.0));
+    scene.add(createDune(-55, 35, 22, 6.0));
+    scene.add(createDune(-60, -25, 26, 7.5));
 
-    // 7. ROADS & GRAND BOULEVARDS
+    // 8. EXPANDED BOULEVARDS & STREET NETWORK
     const createRoad = (w: number, d: number, x: number, z: number, rotationY = 0) => {
       const roadGeo = new THREE.PlaneGeometry(w, d);
-      const roadMat = new THREE.MeshLambertMaterial({ color: '#374151' });
-      const road = new THREE.Mesh(roadGeo, roadMat);
+      const road = new THREE.Mesh(roadGeo, sharedRoadMat);
       road.rotation.x = -Math.PI / 2;
       road.rotation.z = rotationY;
       road.position.set(x, 0.03, z);
       road.receiveShadow = true;
       return road;
     };
-    // Heritage district roads
-    scene.add(createRoad(10, 150, -10, 0));
-    scene.add(createRoad(90, 10, -15, 20, Math.PI / 2));
-    scene.add(createRoad(90, 10, -15, -25, Math.PI / 2));
+    scene.add(createRoad(10, 180, -10, 0));
+    scene.add(createRoad(110, 10, -15, 20, Math.PI / 2));
+    scene.add(createRoad(110, 10, -15, -25, Math.PI / 2));
     // Modern district boulevard (across the creek)
-    scene.add(createRoad(12, 160, 32, -10));
-    scene.add(createRoad(70, 10, 32, -45, Math.PI / 2));
+    scene.add(createRoad(12, 190, 32, 0));
+    scene.add(createRoad(90, 10, 32, -45, Math.PI / 2));
+    scene.add(createRoad(80, 10, 32, 45, Math.PI / 2));
 
-    // 8. DUBAI CREEK WATERWAY (x = 8.5 to 43.5)
-    const creekGeo = new THREE.PlaneGeometry(35, 240);
+    // 9. DUBAI CREEK WATERWAY (x = 8.5 to 43.5, length 280m)
+    const creekGeo = new THREE.PlaneGeometry(35, 280);
     const creekMat = new THREE.MeshLambertMaterial({ 
       color: '#38BDF8', 
       transparent: true, 
@@ -311,113 +367,78 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     creekMesh.receiveShadow = true;
     scene.add(creekMesh);
 
-    // Creek West Quay Wall
-    const quayGeo = new THREE.BoxGeometry(1.5, 0.8, 240);
-    const quayMat = new THREE.MeshLambertMaterial({ color: '#C2A378' });
-    const quayWest = new THREE.Mesh(quayGeo, quayMat);
+    // Creek West & East Quay Walls
+    const quayGeo = new THREE.BoxGeometry(1.5, 0.8, 280);
+    const quayWest = new THREE.Mesh(quayGeo, sharedBuildingMat);
     quayWest.position.set(8.5, 0.4, 0);
     quayWest.receiveShadow = true;
-    quayWest.castShadow = true;
     scene.add(quayWest);
 
-    // Creek East Quay Wall (Modern side)
-    const quayEast = new THREE.Mesh(quayGeo, quayMat);
+    const quayEast = new THREE.Mesh(quayGeo, sharedBuildingMat);
     quayEast.position.set(43.5, 0.4, 0);
     quayEast.receiveShadow = true;
-    quayEast.castShadow = true;
     scene.add(quayEast);
 
-    // 9. GRAND HERITAGE CAUSEWAY / ARCH BRIDGE ACROSS CREEK (x: 7.5 to 44.5, z: 0)
+    // 10. GRAND ARCH CAUSEWAY BRIDGE (x: 7.5 to 44.5)
     const bridgeGroup = new THREE.Group();
-    const bridgeLength = 37.0; // from x=7.5 to x=44.5
+    const bridgeLength = 37.0;
     const bridgeWidth = 8.0;
-    const bridgePlankMat = new THREE.MeshLambertMaterial({ color: '#78350F' });
-    const bridgeRailingMat = new THREE.MeshLambertMaterial({ color: '#FBBF24' });
+    const segments = 22;
+    const postGeo = new THREE.CylinderGeometry(0.1, 0.1, 1.2, 6);
 
-    // Curved segments for bridge deck
-    const segments = 24;
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
       const bx = 7.5 + t * bridgeLength;
-      const by = 0.4 + Math.sin(t * Math.PI) * 3.2; // Peak height 3.6m
+      const by = 0.4 + Math.sin(t * Math.PI) * 3.2;
       const segGeo = new THREE.BoxGeometry(bridgeLength / segments + 0.1, 0.4, bridgeWidth);
-      const segMesh = new THREE.Mesh(segGeo, bridgePlankMat);
+      const segMesh = new THREE.Mesh(segGeo, sharedWoodMat);
       segMesh.position.set(bx, by, 0);
       segMesh.castShadow = true;
       segMesh.receiveShadow = true;
       bridgeGroup.add(segMesh);
 
-      // Side balustrade railings
       if (i % 2 === 0) {
         for (let rz of [-bridgeWidth / 2 + 0.2, bridgeWidth / 2 - 0.2]) {
-          const postGeo = new THREE.CylinderGeometry(0.1, 0.1, 1.2);
-          const post = new THREE.Mesh(postGeo, bridgeRailingMat);
+          const post = new THREE.Mesh(postGeo, sharedGoldMat);
           post.position.set(bx, by + 0.7, rz);
-          post.castShadow = true;
           bridgeGroup.add(post);
         }
       }
     }
-    // Bridge Lanterns on arch crest
-    const bridgeLanternGeo = new THREE.DodecahedronGeometry(0.35);
-    const bridgeLanternMat = new THREE.MeshLambertMaterial({ color: '#FBBF24', emissive: '#F59E0B', emissiveIntensity: 0.6 });
-    const bLantern1 = new THREE.Mesh(bridgeLanternGeo, bridgeLanternMat);
-    bLantern1.position.set(26, 4.4, -bridgeWidth / 2 + 0.2);
-    const bLantern2 = new THREE.Mesh(bridgeLanternGeo, bridgeLanternMat);
-    bLantern2.position.set(26, 4.4, bridgeWidth / 2 - 0.2);
-    bridgeGroup.add(bLantern1, bLantern2);
     scene.add(bridgeGroup);
 
-    // 10. TRADITIONAL ABRA BOATS IN THE CREEK
+    // 11. TRADITIONAL ABRA BOATS IN CREEK
     const createAbra = (zPos: number) => {
       const abraGroup = new THREE.Group();
-      const hullGeo = new THREE.BoxGeometry(3.5, 0.6, 6.5);
-      const hullMat = new THREE.MeshLambertMaterial({ color: '#78350F' });
-      const hull = new THREE.Mesh(hullGeo, hullMat);
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.6, 6.5), sharedWoodMat);
       hull.position.y = 0.3;
-      hull.castShadow = true;
       abraGroup.add(hull);
 
-      const roofGeo = new THREE.BoxGeometry(3.2, 0.1, 5.0);
-      const roofMat = new THREE.MeshLambertMaterial({ color: '#FBBF24' });
-      const roof = new THREE.Mesh(roofGeo, roofMat);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.1, 5.0), sharedGoldMat);
       roof.position.y = 1.6;
-      roof.castShadow = true;
       abraGroup.add(roof);
 
-      for (let px of [-1.4, 1.4]) {
-        for (let pz of [-2.2, 2.2]) {
-          const poleGeo = new THREE.CylinderGeometry(0.05, 0.05, 1.3);
-          const pole = new THREE.Mesh(poleGeo, new THREE.MeshLambertMaterial({ color: '#52290D' }));
-          pole.position.set(px, 0.95, pz);
-          abraGroup.add(pole);
-        }
-      }
       abraGroup.position.set(20, 0, zPos);
       return abraGroup;
     };
     const abra1 = createAbra(-18);
     const abra2 = createAbra(22);
-    scene.add(abra1);
-    scene.add(abra2);
+    scene.add(abra1, abra2);
 
-    // 11. DUBAI LANDMARKS
+    // 12. DETAILED LANDMARKS
     // a) Burj Khalifa
     const bkGroup = new THREE.Group();
-    const bkSilver = new THREE.MeshLambertMaterial({ color: '#E2E8F0' });
     const bkDark = new THREE.MeshLambertMaterial({ color: '#4B5563' });
     for (let i = 0; i < 5; i++) {
       const size = 7 - i * 1.2;
       const h = 10;
-      const boxGeo = new THREE.BoxGeometry(size, h, size);
-      const box = new THREE.Mesh(boxGeo, i === 0 ? bkDark : bkSilver);
+      const box = new THREE.Mesh(new THREE.BoxGeometry(size, h, size), i === 0 ? bkDark : sharedSilverMat);
       box.position.y = i * h + h / 2;
       box.castShadow = true;
       box.receiveShadow = true;
       bkGroup.add(box);
     }
-    const bkSpireGeo = new THREE.CylinderGeometry(0.15, 0.6, 12, 4);
-    const bkSpire = new THREE.Mesh(bkSpireGeo, bkSilver);
+    const bkSpire = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.6, 12, 4), sharedSilverMat);
     bkSpire.position.y = 56;
     bkSpire.castShadow = true;
     bkGroup.add(bkSpire);
@@ -426,88 +447,190 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
 
     // b) Dubai Frame
     const dfGroup = new THREE.Group();
-    const goldMat = new THREE.MeshLambertMaterial({ color: '#D4AF37' });
     const pillarGeo = new THREE.BoxGeometry(2.5, 26, 2.5);
-    const p1 = new THREE.Mesh(pillarGeo, goldMat);
+    const p1 = new THREE.Mesh(pillarGeo, sharedGoldMat);
     p1.position.set(-7, 13, 0);
     p1.castShadow = true;
-    const p2 = new THREE.Mesh(pillarGeo, goldMat);
+    const p2 = new THREE.Mesh(pillarGeo, sharedGoldMat);
     p2.position.set(7, 13, 0);
     p2.castShadow = true;
-    const bridgeGeo = new THREE.BoxGeometry(16.5, 2.5, 2.5);
-    const bridge = new THREE.Mesh(bridgeGeo, goldMat);
-    bridge.position.set(0, 25, 0);
-    bridge.castShadow = true;
-    dfGroup.add(p1, p2, bridge);
+    const dfBridge = new THREE.Mesh(new THREE.BoxGeometry(16.5, 2.5, 2.5), sharedGoldMat);
+    dfBridge.position.set(0, 25, 0);
+    dfBridge.castShadow = true;
+    dfGroup.add(p1, p2, dfBridge);
     dfGroup.position.set(-25, 0, -35);
     scene.add(dfGroup);
 
     // c) Burj Al Arab
     const baaGroup = new THREE.Group();
-    const whiteMat = new THREE.MeshLambertMaterial({ color: '#F8FAFC' });
-    const tealMat = new THREE.MeshLambertMaterial({ color: '#0D9488' });
-    const sailGeo = new THREE.CylinderGeometry(0.1, 5.5, 22, 3);
-    const sail = new THREE.Mesh(sailGeo, whiteMat);
+    const sail = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 5.5, 22, 3), new THREE.MeshLambertMaterial({ color: '#F8FAFC' }));
     sail.position.y = 11;
     sail.rotation.y = -Math.PI / 2;
     sail.castShadow = true;
-    const accentGeo = new THREE.CylinderGeometry(0.5, 0.5, 24, 16);
-    const accent = new THREE.Mesh(accentGeo, tealMat);
-    accent.position.set(2.2, 12, 0);
-    accent.rotation.z = -0.15;
-    baaGroup.add(sail, accent);
-    const islandGeo = new THREE.CylinderGeometry(10, 10, 0.6, 32);
-    const islandMat = new THREE.MeshLambertMaterial({ color: '#CBD5E1' });
-    const island = new THREE.Mesh(islandGeo, islandMat);
+    const island = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 0.6, 24), new THREE.MeshLambertMaterial({ color: '#CBD5E1' }));
     island.position.y = 0.3;
-    island.receiveShadow = true;
-    baaGroup.add(island);
+    baaGroup.add(sail, island);
     baaGroup.position.set(40, 0, 25);
     scene.add(baaGroup);
 
     // d) Museum of the Future
     const motfGroup = new THREE.Group();
-    const chromeMat = new THREE.MeshStandardMaterial({ color: '#CBD5E1', roughness: 0.25, metalness: 0.8 });
-    const torusGeo = new THREE.TorusGeometry(4.5, 2.2, 16, 50);
-    const torus = new THREE.Mesh(torusGeo, chromeMat);
+    const torus = new THREE.Mesh(
+      new THREE.TorusGeometry(4.5, 2.2, 14, 42),
+      new THREE.MeshStandardMaterial({ color: '#CBD5E1', roughness: 0.25, metalness: 0.8 })
+    );
     torus.position.y = 6.5;
     torus.castShadow = true;
-    const baseGeo = new THREE.BoxGeometry(7, 1.2, 5);
-    const base = new THREE.Mesh(baseGeo, new THREE.MeshLambertMaterial({ color: '#334155' }));
-    base.position.y = 0.6;
-    motfGroup.add(torus, base);
+    const motfBase = new THREE.Mesh(new THREE.BoxGeometry(7, 1.2, 5), new THREE.MeshLambertMaterial({ color: '#334155' }));
+    motfBase.position.y = 0.6;
+    motfGroup.add(torus, motfBase);
     motfGroup.position.set(-35, 0, 15);
     motfGroup.rotation.y = Math.PI / 4;
     scene.add(motfGroup);
 
-    // 12. AL FAHIDI HISTORIC BUILDINGS & ROOFTOP OVERLOOK
-    const buildingMat = new THREE.MeshLambertMaterial({ color: '#D4B996' });
-    const woodMat = new THREE.MeshLambertMaterial({ color: '#451A03' });
+    // e) NEW: AIN DUBAI GIANT OBSERVATION WHEEL (x: 55, z: 50)
+    const ainWheelGroup = new THREE.Group();
+    // A-frame support pylons
+    const pylonGeo = new THREE.CylinderGeometry(0.4, 0.7, 24, 8);
+    const pylon1 = new THREE.Mesh(pylonGeo, sharedSilverMat);
+    pylon1.position.set(-4, 11, 0);
+    pylon1.rotation.z = -0.16;
+    pylon1.castShadow = true;
+    const pylon2 = new THREE.Mesh(pylonGeo, sharedSilverMat);
+    pylon2.position.set(4, 11, 0);
+    pylon2.rotation.z = 0.16;
+    pylon2.castShadow = true;
+    ainWheelGroup.add(pylon1, pylon2);
 
-    // Special Wind-Tower Rooftop Observatory (walkable via ramp)
+    // Rotating Wheel Rim & Spokes
+    const wheelRotatingGroup = new THREE.Group();
+    wheelRotatingGroup.position.set(0, 17, 0);
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(12, 0.45, 12, 36),
+      sharedSilverMat
+    );
+    wheelRotatingGroup.add(rim);
+
+    // Spokes and observation capsules
+    const podGeo = new THREE.SphereGeometry(0.7, 10, 10);
+    const podMat = new THREE.MeshLambertMaterial({ color: '#38BDF8', emissive: '#0284C7', emissiveIntensity: 0.4 });
+    const spokeGeo = new THREE.CylinderGeometry(0.08, 0.08, 23.6, 4);
+    for (let a = 0; a < 6; a++) {
+      const spoke = new THREE.Mesh(spokeGeo, sharedSilverMat);
+      spoke.rotation.z = (a * Math.PI) / 6;
+      wheelRotatingGroup.add(spoke);
+    }
+    for (let c = 0; c < 12; c++) {
+      const angle = (c * Math.PI * 2) / 12;
+      const pod = new THREE.Mesh(podGeo, podMat);
+      pod.position.set(Math.cos(angle) * 12, Math.sin(angle) * 12, 0);
+      wheelRotatingGroup.add(pod);
+    }
+    ainWheelGroup.add(wheelRotatingGroup);
+    ainWheelGroup.position.set(55, 0, 50);
+    scene.add(ainWheelGroup);
+
+    // f) NEW: SPICE & GOLD SOUK BAZAAR (Old Deira Quarter at x: -6, z: 28)
+    const soukGroup = new THREE.Group();
+    const awningMat1 = new THREE.MeshLambertMaterial({ color: '#DC2626' }); // Red
+    const awningMat2 = new THREE.MeshLambertMaterial({ color: '#F59E0B' }); // Saffron Gold
+    const awningMat3 = new THREE.MeshLambertMaterial({ color: '#10B981' }); // Emerald Green
+    const awningMat4 = new THREE.MeshLambertMaterial({ color: '#2563EB' }); // Cobalt Blue
+
+    const createStall = (sx: number, sz: number, mat: THREE.MeshLambertMaterial) => {
+      const s = new THREE.Group();
+      // Counter table
+      const counter = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.0, 2.0), sharedWoodMat);
+      counter.position.y = 0.5;
+      s.add(counter);
+      // Striped Awning
+      const awning = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.1, 2.6), mat);
+      awning.position.set(0, 2.2, 0.2);
+      awning.rotation.x = 0.15;
+      s.add(awning);
+      // Posts
+      for (let px of [-1.7, 1.7]) {
+        const post = new THREE.Mesh(postGeo, sharedWoodMat);
+        post.position.set(px, 1.3, 1.2);
+        s.add(post);
+      }
+      s.position.set(sx, 0, sz);
+      return s;
+    };
+    soukGroup.add(createStall(-10, 24, awningMat1));
+    soukGroup.add(createStall(-4, 24, awningMat2));
+    soukGroup.add(createStall(-10, 32, awningMat3));
+    soukGroup.add(createStall(-4, 32, awningMat4));
+    // Sikka entrance arch
+    const archTop = new THREE.Mesh(new THREE.BoxGeometry(8, 0.8, 1.2), sharedWoodMat);
+    archTop.position.set(-7, 3.8, 19);
+    soukGroup.add(archTop);
+    scene.add(soukGroup);
+
+    // g) NEW: DESERT DUNE BEDOUIN CAMP (x: -50, z: -55)
+    const campGroup = new THREE.Group();
+    // Large Bedouin Tent
+    const tentRoofGeo = new THREE.ConeGeometry(4.5, 2.4, 4);
+    const tentRoof = new THREE.Mesh(tentRoofGeo, new THREE.MeshLambertMaterial({ color: '#451A03' }));
+    tentRoof.position.set(-50, 4.4, -55);
+    tentRoof.rotation.y = Math.PI / 4;
+    tentRoof.castShadow = true;
+    campGroup.add(tentRoof);
+    // Campfire with ember glow
+    const campFireBase = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.2, 8), sharedRoadMat);
+    campFireBase.position.set(-47, 3.3, -51);
+    const flameGeo = new THREE.ConeGeometry(0.4, 0.9, 6);
+    const flameMat = new THREE.MeshBasicMaterial({ color: '#F97316' });
+    const flameMesh = new THREE.Mesh(flameGeo, flameMat);
+    flameMesh.position.set(-47, 3.8, -51);
+    campGroup.add(campFireBase, flameMesh);
+    scene.add(campGroup);
+
+    // h) NEW: MIRACLE FLORAL OASIS & FOUNTAIN (x: 50, z: -35)
+    const oasisGroup = new THREE.Group();
+    // Tiered Stone Fountain
+    const fBase = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 0.6, 24), sharedBuildingMat);
+    fBase.position.set(50, 0.3, -35);
+    const fTier = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 0.4, 16), sharedBuildingMat);
+    fTier.position.set(50, 1.2, -35);
+    const fCenter = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 2.0, 8), sharedBuildingMat);
+    fCenter.position.set(50, 1.5, -35);
+    // Water surface
+    const fWater = new THREE.Mesh(new THREE.CircleGeometry(4.2, 24), new THREE.MeshLambertMaterial({ color: '#38BDF8' }));
+    fWater.rotation.x = -Math.PI / 2;
+    fWater.position.set(50, 0.58, -35);
+    oasisGroup.add(fBase, fTier, fCenter, fWater);
+
+    // Floral Blossom Arches
+    const archMat1 = new THREE.MeshLambertMaterial({ color: '#EC4899' });
+    const archMat2 = new THREE.MeshLambertMaterial({ color: '#FBBF24' });
+    const bArch1 = new THREE.Mesh(new THREE.TorusGeometry(3.5, 0.5, 8, 20), archMat1);
+    bArch1.position.set(44, 2.8, -35);
+    bArch1.rotation.y = Math.PI / 2;
+    const bArch2 = new THREE.Mesh(new THREE.TorusGeometry(3.5, 0.5, 8, 20), archMat2);
+    bArch2.position.set(56, 2.8, -35);
+    bArch2.rotation.y = Math.PI / 2;
+    oasisGroup.add(bArch1, bArch2);
+    scene.add(oasisGroup);
+
+    // 13. AL FAHIDI HISTORIC BUILDINGS & ROOFTOP OBSERVATORY
     const observatoryGroup = new THREE.Group();
-    const obsBase = new THREE.Mesh(new THREE.BoxGeometry(10, 5.5, 12), buildingMat);
+    const obsBase = new THREE.Mesh(new THREE.BoxGeometry(10, 5.5, 12), sharedBuildingMat);
     obsBase.position.set(-16, 2.75, -18);
     obsBase.castShadow = true;
     obsBase.receiveShadow = true;
     observatoryGroup.add(obsBase);
 
-    // Rooftop Walkable Deck
-    const obsDeck = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.3, 11.6), woodMat);
+    const obsDeck = new THREE.Mesh(new THREE.BoxGeometry(9.6, 0.3, 11.6), sharedWoodMat);
     obsDeck.position.set(-16, 5.65, -18);
     obsDeck.receiveShadow = true;
     observatoryGroup.add(obsDeck);
 
-    // Rooftop Safety Railings
-    const obsRailing = new THREE.Mesh(new THREE.BoxGeometry(9.8, 0.8, 11.8), new THREE.MeshBasicMaterial({ wireframe: true, color: '#FBBF24' }));
-    obsRailing.position.set(-16, 6.1, -18);
-    observatoryGroup.add(obsRailing);
-
-    // Walkable Angled Ramp up to Rooftop (from x: -9 to x: -16 at z: -18)
+    // Walkable Angled Ramp up to Rooftop
     const rampLength = 7.0;
     const rampAngle = Math.atan2(5.5, rampLength);
     const rampGeo = new THREE.BoxGeometry(Math.hypot(rampLength, 5.5), 0.4, 2.4);
-    const ramp = new THREE.Mesh(rampGeo, woodMat);
+    const ramp = new THREE.Mesh(rampGeo, sharedWoodMat);
     ramp.position.set(-12.5, 2.75, -18);
     ramp.rotation.z = rampAngle;
     ramp.castShadow = true;
@@ -515,18 +638,15 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     observatoryGroup.add(ramp);
     scene.add(observatoryGroup);
 
-    // Other heritage buildings
+    // Additional historic houses
     const createAlFahidiHouse = (x: number, z: number, w: number, h: number, d: number) => {
       const houseGroup = new THREE.Group();
-      const main = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), buildingMat);
+      const main = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), sharedBuildingMat);
       main.position.y = h / 2;
       main.castShadow = true;
       main.receiveShadow = true;
       houseGroup.add(main);
-      const door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 0.2), woodMat);
-      door.position.set(0, 1.1, d / 2 + 0.05);
-      houseGroup.add(door);
-      const tower = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 2.5), buildingMat);
+      const tower = new THREE.Mesh(new THREE.BoxGeometry(2.5, 3.5, 2.5), sharedBuildingMat);
       tower.position.set(w / 3, h + 1.75, -d / 3);
       tower.castShadow = true;
       houseGroup.add(tower);
@@ -538,13 +658,13 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     scene.add(createAlFahidiHouse(-2, 22, 10, 5.2, 11));
     scene.add(createAlFahidiHouse(-28, -6, 12, 6.5, 12));
 
-    // 13. INTERACTIVE SPEED BOOST PADS (⚡)
+    // 14. INTERACTIVE SPEED BOOST PADS (⚡)
     const boostPads = [
       { x: -10, z: 0 },
       { x: 26, z: 0 },
-      { x: 32, z: -30 }
+      { x: 32, z: -30 },
+      { x: 32, z: 35 }
     ];
-    const boostPadMeshes: THREE.Mesh[] = [];
     boostPads.forEach((pad) => {
       const padGeo = new THREE.BoxGeometry(3.0, 0.1, 4.5);
       const padMat = new THREE.MeshLambertMaterial({ 
@@ -555,17 +675,16 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       const padMesh = new THREE.Mesh(padGeo, padMat);
       padMesh.position.set(pad.x, 0.08, pad.z);
       scene.add(padMesh);
-      boostPadMeshes.push(padMesh);
     });
 
-    // 14. INTERACTIVE TRAMPOLINE BOUNCE PADS (🦘)
+    // 15. INTERACTIVE TRAMPOLINE BOUNCE PADS (🦘)
     const bouncePads = [
       { x: -8, z: 12 },
-      { x: 32, z: -15 }
+      { x: 32, z: -15 },
+      { x: 50, z: -20 }
     ];
-    const bouncePadMeshes: THREE.Mesh[] = [];
     bouncePads.forEach((pad) => {
-      const bGeo = new THREE.CylinderGeometry(1.6, 1.6, 0.25, 24);
+      const bGeo = new THREE.CylinderGeometry(1.6, 1.6, 0.25, 20);
       const bMat = new THREE.MeshLambertMaterial({ 
         color: '#F59E0B', 
         emissive: '#D97706', 
@@ -574,21 +693,18 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       const bMesh = new THREE.Mesh(bGeo, bMat);
       bMesh.position.set(pad.x, 0.15, pad.z);
       scene.add(bMesh);
-      bouncePadMeshes.push(bMesh);
     });
 
-    // 15. SECRET MYSTERY CHESTS (🎁)
+    // 16. SECRET MYSTERY CHESTS (🎁)
     const chests = [
       { id: 'chest-rooftop', x: -16, y: 5.8, z: -16, opened: false },
-      { id: 'chest-burj', x: 34, y: 0.3, z: -62, opened: false }
+      { id: 'chest-burj', x: 34, y: 0.3, z: -62, opened: false },
+      { id: 'chest-oasis', x: 53, y: 0.3, z: -38, opened: false }
     ];
     const chestMeshes: { [id: string]: { group: THREE.Group; lid: THREE.Mesh } } = {};
     chests.forEach((ch) => {
       const cGroup = new THREE.Group();
-      const trunk = new THREE.Mesh(
-        new THREE.BoxGeometry(1.4, 0.8, 1.0),
-        new THREE.MeshLambertMaterial({ color: '#78350F' })
-      );
+      const trunk = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 1.0), sharedWoodMat);
       trunk.position.y = 0.4;
       trunk.castShadow = true;
       cGroup.add(trunk);
@@ -606,22 +722,19 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       chestMeshes[ch.id] = { group: cGroup, lid };
     });
 
-    // 16. PALM TREES
+    // 17. PALM TREES (INSTANCED REUSE FOR ZERO LAG)
+    const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 4.5, 6);
+    const leafGeo = new THREE.ConeGeometry(0.9, 2.2, 4);
+
     const createPalmTree = (x: number, z: number) => {
       const palmGroup = new THREE.Group();
-      const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.35, 4.5, 6),
-        new THREE.MeshLambertMaterial({ color: '#78350F' })
-      );
+      const trunk = new THREE.Mesh(trunkGeo, sharedWoodMat);
       trunk.position.y = 2.25;
       trunk.castShadow = true;
       palmGroup.add(trunk);
 
       for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 3) {
-        const leaf = new THREE.Mesh(
-          new THREE.ConeGeometry(0.9, 2.2, 4),
-          new THREE.MeshLambertMaterial({ color: '#15803D' })
-        );
+        const leaf = new THREE.Mesh(leafGeo, sharedFoliageMat);
         leaf.position.set(Math.cos(angle) * 0.9, 4.3, Math.sin(angle) * 0.9);
         leaf.rotation.x = Math.PI / 3;
         leaf.rotation.y = angle;
@@ -633,11 +746,33 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     };
     const palmPositions = [
       [6, -8], [5, 12], [-8, -10], [-10, 16], [2, -2],
-      [45, -15], [45, 10], [38, -35], [38, 30]
+      [45, -15], [45, 10], [38, -35], [38, 30],
+      [48, -45], [54, -42], [-54, -48], [-44, -62]
     ];
     palmPositions.forEach(([px, pz]) => scene.add(createPalmTree(px, pz)));
 
-    // 17. PLAYER RIG & AVATARS
+    // 18. ACTIVE GPS 3D WAYPOINT BEACON IN WORLD
+    const waypointBeaconGroup = new THREE.Group();
+    const beaconBeamGeo = new THREE.CylinderGeometry(0.5, 0.5, 70, 12);
+    const beaconBeamMat = new THREE.MeshBasicMaterial({ 
+      color: '#38BDF8', 
+      transparent: true, 
+      opacity: 0.35,
+      side: THREE.DoubleSide
+    });
+    const beaconBeam = new THREE.Mesh(beaconBeamGeo, beaconBeamMat);
+    beaconBeam.position.y = 35;
+    waypointBeaconGroup.add(beaconBeam);
+
+    const beaconDiamondGeo = new THREE.OctahedronGeometry(1.6);
+    const beaconDiamondMat = new THREE.MeshBasicMaterial({ color: '#FBBF24', wireframe: false });
+    const beaconDiamond = new THREE.Mesh(beaconDiamondGeo, beaconDiamondMat);
+    beaconDiamond.position.y = 12;
+    waypointBeaconGroup.add(beaconDiamond);
+    waypointBeaconGroup.visible = false;
+    scene.add(waypointBeaconGroup);
+
+    // 19. PLAYER RIG & AVATARS
     const createCharacterRig = (primaryColor: string, isMainPlayer: boolean) => {
       const rigGroup = new THREE.Group();
       const bodyMat = new THREE.MeshLambertMaterial({ color: primaryColor });
@@ -649,12 +784,12 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       torso.castShadow = true;
       rigGroup.add(torso);
     
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), skinMat);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), skinMat);
       head.position.y = 1.6;
       head.castShadow = true;
       rigGroup.add(head);
     
-      const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.1, 16), new THREE.MeshLambertMaterial({ color: '#FBBF24' }));
+      const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.1, 12), sharedGoldMat);
       hat.position.y = 1.95;
       hat.castShadow = true;
       rigGroup.add(hat);
@@ -666,14 +801,13 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         rigGroup.add(pack);
       }
     
-      const armGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.7, 8);
-      const legGeo = new THREE.CylinderGeometry(0.12, 0.1, 0.8, 8);
+      const armGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.7, 6);
+      const legGeo = new THREE.CylinderGeometry(0.12, 0.1, 0.8, 6);
     
       const leftArm = new THREE.Group();
       leftArm.position.set(0.45, 1.3, 0);
       const leftArmMesh = new THREE.Mesh(armGeo, skinMat);
       leftArmMesh.position.y = -0.35;
-      leftArmMesh.castShadow = true;
       leftArm.add(leftArmMesh);
       rigGroup.add(leftArm);
     
@@ -681,7 +815,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       rightArm.position.set(-0.45, 1.3, 0);
       const rightArmMesh = new THREE.Mesh(armGeo, skinMat);
       rightArmMesh.position.y = -0.35;
-      rightArmMesh.castShadow = true;
       rightArm.add(rightArmMesh);
       rigGroup.add(rightArm);
     
@@ -689,7 +822,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       leftLeg.position.set(0.2, 0.8, 0);
       const leftLegMesh = new THREE.Mesh(legGeo, bodyMat);
       leftLegMesh.position.y = -0.4;
-      leftLegMesh.castShadow = true;
       leftLeg.add(leftLegMesh);
       rigGroup.add(leftLeg);
     
@@ -697,7 +829,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       rightLeg.position.set(-0.2, 0.8, 0);
       const rightLegMesh = new THREE.Mesh(legGeo, bodyMat);
       rightLegMesh.position.y = -0.4;
-      rightLegMesh.castShadow = true;
       rightLeg.add(rightLegMesh);
       rigGroup.add(rightLeg);
     
@@ -720,7 +851,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       scene.add(rGroup);
     });
 
-    // 18. 3D COLLECTIBLE ITEMS MESHES
+    // 20. 3D COLLECTIBLE ITEMS MESHES
     const collectibleMeshes: { [id: string]: THREE.Group } = {};
     const collectibleRings: { [id: string]: THREE.MeshLambertMaterial } = {};
 
@@ -729,11 +860,11 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       let mesh: THREE.Mesh;
 
       if (item.type === 'pearl') {
-        const geo = new THREE.SphereGeometry(0.4, 16, 16);
+        const geo = new THREE.SphereGeometry(0.4, 14, 14);
         const mat = new THREE.MeshLambertMaterial({ color: '#E0F2FE', emissive: '#38BDF8', emissiveIntensity: 0.25 });
         mesh = new THREE.Mesh(geo, mat);
       } else if (item.type === 'coin') {
-        const geo = new THREE.CylinderGeometry(0.45, 0.45, 0.1, 16);
+        const geo = new THREE.CylinderGeometry(0.45, 0.45, 0.1, 14);
         const mat = new THREE.MeshLambertMaterial({ color: '#FBBF24', emissive: '#D97706', emissiveIntensity: 0.35 });
         mesh = new THREE.Mesh(geo, mat);
         mesh.rotation.x = Math.PI / 2;
@@ -745,8 +876,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       mesh.castShadow = true;
       cGroup.add(mesh);
 
-      // Glow Ring
-      const ringGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 16);
+      const ringGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 14);
       const ringMat = new THREE.MeshLambertMaterial({ color: '#FBBF24', emissive: '#F59E0B', emissiveIntensity: 0.5 });
       const ringMesh = new THREE.Mesh(ringGeo, ringMat);
       ringMesh.position.y = 0.03;
@@ -758,7 +888,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       collectibleRings[item.id] = ringMat;
     });
 
-    // 19. CAMERA DRAG & ROTATION
+    // 21. CAMERA DRAG & ROTATION
     let cameraAngle = Math.PI * 0.75;
     let cameraPitch = 0.45;
     let isDragging = false;
@@ -768,7 +898,6 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      // Do not capture drag if touching virtual joystick area or jump button
       if (clientX < 180 && clientY > height - 180) return;
       if (clientX > width - 100 && clientY > height - 100) return;
 
@@ -823,7 +952,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     };
     window.addEventListener('resize', onWindowResize);
 
-    // 20. PHYSICS & HEIGHT CALCULATION
+    // 22. PRECISE HEIGHT COLLISION CALCULATION
     const getGroundHeight = (px: number, pz: number): number => {
       // 1. Grand Arch Bridge: x between 7.5 and 44.5, z between -4.2 and 4.2
       if (px >= 7.5 && px <= 44.5 && Math.abs(pz) <= 4.2) {
@@ -834,19 +963,19 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       if (px >= -21 && px <= -11 && pz >= -24 && pz <= -12) {
         return 5.65;
       }
-      // 3. Observatory Ramp: x between -11 and -7 at z around -18
+      // 3. Observatory Ramp: x between -16 and -9 at z around -18
       if (px >= -16 && px <= -9 && Math.abs(pz - (-18)) <= 1.4) {
         const rampProgress = (-9 - px) / 7.0;
         return Math.max(0, Math.min(5.65, rampProgress * 5.65));
       }
-      // 4. Sand dunes (Gentle rise on west side)
+      // 4. Sand dunes (Western dunes)
       if (px <= -30 && pz <= -35) {
-        return Math.max(0, ((-30 - px) / 20.0) * 2.2);
+        return Math.max(0, ((-30 - px) / 20.0) * 2.8);
       }
       return 0;
     };
 
-    // 21. MAIN GAME LOOP
+    // 23. MAIN GAME LOOP
     let animationFrameId: number;
     let clock = new THREE.Clock();
 
@@ -855,9 +984,9 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     let playerVelY = 0;
     let isGrounded = true;
     const gravity = -28.0;
-    const baseSpeed = 10.0;
-    const accelRate = baseSpeed / 0.15;
-    const decelRate = baseSpeed / 0.1;
+    const baseSpeed = 10.5;
+    const accelRate = baseSpeed / 0.12;
+    const decelRate = baseSpeed / 0.08;
 
     // Initial camera placement
     const camDist = 7.5;
@@ -866,16 +995,31 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
     targetCameraPos.z = playerGroup.position.z + Math.cos(cameraAngle) * Math.cos(cameraPitch) * camDist;
     camera.position.copy(targetCameraPos);
 
+    let lastCoordsUpdate = 0;
+
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      const delta = Math.min(clock.getDelta(), 0.05);
+      const delta = Math.min(clock.getDelta(), 0.033); // Clamp delta for physics stability
       const time = clock.getElapsedTime();
       const now = Date.now();
+
+      // Check teleport queue
+      if (teleportTargetRef.current) {
+        const target = teleportTargetRef.current;
+        teleportTargetRef.current = null;
+        playerGroup.position.set(target.x, target.y + 0.8, target.z);
+        velocity.set(0, 0, 0);
+        playerY = target.y;
+        playerVelY = 0;
+        isGrounded = true;
+        playSoundEffect('teleport');
+        showBadge(`TELEPORTED TO ${target.landmarkName.toUpperCase()}!`, '🚀');
+      }
 
       // Check speed boost expiration
       const isBoosting = now < speedBoostExpiresRef.current;
       setSpeedBoostActive(isBoosting);
-      const currentMaxSpeed = isBoosting ? 17.5 : baseSpeed;
+      const currentMaxSpeed = isBoosting ? 18.0 : baseSpeed;
 
       // Collect movement input
       const joyX = moveVectorRef.current.x;
@@ -920,15 +1064,14 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
 
       playerGroup.position.addScaledVector(velocity, delta);
 
-      // Map boundary checks (expanded across Creek to modern district)
-      playerGroup.position.x = Math.max(-55, Math.min(60, playerGroup.position.x));
-      playerGroup.position.z = Math.max(-85, Math.min(85, playerGroup.position.z));
+      // Expanded Map boundaries: x in [-70, 75], z in [-95, 95]
+      playerGroup.position.x = Math.max(-70, Math.min(75, playerGroup.position.x));
+      playerGroup.position.z = Math.max(-95, Math.min(95, playerGroup.position.z));
 
-      // Water barrier: prevent walking in deep water if not on bridge
+      // Water channel boundary check
       const inWaterChannel = playerGroup.position.x > 8.8 && playerGroup.position.x < 43.2;
       const onBridgeDeck = Math.abs(playerGroup.position.z) <= 4.2;
       if (inWaterChannel && !onBridgeDeck) {
-        // Soft boundary reflection push
         if (playerGroup.position.x < 26) {
           playerGroup.position.x = 8.6;
         } else {
@@ -939,11 +1082,10 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       // Vertical gravity & Ground Collision
       const targetGround = getGroundHeight(playerGroup.position.x, playerGroup.position.z);
 
-      // Check Jump Trigger
       if (jumpTriggerRef.current) {
         jumpTriggerRef.current = false;
         if (isGrounded) {
-          playerVelY = 11.5;
+          playerVelY = 12.0;
           isGrounded = false;
           playSoundEffect('jump');
         }
@@ -958,8 +1100,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
           isGrounded = true;
         }
       } else {
-        // Snap/smooth to ground terrain height
-        playerY = THREE.MathUtils.lerp(playerY, targetGround, 0.25);
+        playerY = THREE.MathUtils.lerp(playerY, targetGround, 0.28);
       }
 
       playerGroup.position.y = playerY;
@@ -968,7 +1109,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       const currentSpeed = velocity.length();
       if (currentSpeed > 0.1) {
         playerGroup.rotation.y = Math.atan2(velocity.x, velocity.z);
-        const animSpeed = isBoosting ? 24 : 15;
+        const animSpeed = isBoosting ? 25 : 16;
         const bob = Math.abs(Math.sin(time * animSpeed)) * 0.12 * (currentSpeed / currentMaxSpeed);
         playerChar.rigGroup.position.y = bob;
         
@@ -985,14 +1126,38 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         playerChar.rightLeg.rotation.x = 0;
       }
 
-      // Smooth camera follow with orbit
+      // Smooth camera follow
       targetCameraPos.x = playerGroup.position.x + Math.sin(cameraAngle) * Math.cos(cameraPitch) * camDist;
       targetCameraPos.y = playerGroup.position.y + Math.sin(cameraPitch) * camDist + 1.2;
       targetCameraPos.z = playerGroup.position.z + Math.cos(cameraAngle) * Math.cos(cameraPitch) * camDist;
       camera.position.lerp(targetCameraPos, 0.08);
       camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1.2, playerGroup.position.z);
 
-      // Check Speed Boost Pads proximity (<= 2.0m)
+      // Rotate Ain Dubai Giant Wheel
+      wheelRotatingGroup.rotation.z += 0.22 * delta;
+
+      // Shimmer Creek Water
+      creekMat.opacity = 0.86 + Math.sin(time * 2) * 0.05;
+
+      // Update 3D GPS Waypoint Beacon
+      if (activeWaypointRef.current) {
+        const wp = activeWaypointRef.current;
+        waypointBeaconGroup.visible = true;
+        waypointBeaconGroup.position.set(wp.coords.x, 0, wp.coords.z);
+        beaconDiamond.rotation.y += 2.8 * delta;
+        beaconDiamond.position.y = 12 + Math.sin(time * 3) * 1.5;
+        beaconBeamMat.opacity = 0.35 + Math.sin(time * 4) * 0.15;
+
+        // Calculate distance
+        const distToWp = Math.round(
+          Math.hypot(playerGroup.position.x - wp.coords.x, playerGroup.position.z - wp.coords.z)
+        );
+        setWaypointDistance(distToWp);
+      } else {
+        waypointBeaconGroup.visible = false;
+      }
+
+      // Speed Boost Pads proximity
       boostPads.forEach((pad) => {
         const d = Math.hypot(playerGroup.position.x - pad.x, playerGroup.position.z - pad.z);
         if (d <= 2.2 && !isBoosting) {
@@ -1002,18 +1167,18 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         }
       });
 
-      // Check Bounce Pads proximity (<= 1.8m)
+      // Bounce Pads proximity
       bouncePads.forEach((pad) => {
         const d = Math.hypot(playerGroup.position.x - pad.x, playerGroup.position.z - pad.z);
         if (d <= 2.0 && isGrounded) {
-          playerVelY = 17.0; // Mega bounce launch
+          playerVelY = 17.5;
           isGrounded = false;
           playSoundEffect('bounce');
           showBadge('SUPER BOUNCE!', '🦘');
         }
       });
 
-      // Check Secret Chests proximity (<= 2.2m)
+      // Secret Mystery Chests proximity
       chests.forEach((ch) => {
         if (!ch.opened) {
           const d = Math.hypot(playerGroup.position.x - ch.x, playerGroup.position.z - ch.z);
@@ -1021,7 +1186,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
             ch.opened = true;
             const meshEntry = chestMeshes[ch.id];
             if (meshEntry) {
-              meshEntry.lid.rotation.x = -Math.PI / 3; // Open lid
+              meshEntry.lid.rotation.x = -Math.PI / 3;
             }
             playSoundEffect('chest');
             setScore(prev => prev + 250);
@@ -1031,7 +1196,7 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         }
       });
 
-      // Rotate & Bob Collectibles, collect on proximity
+      // Rotate & Collect Collectibles
       const pulse = 0.5 + Math.sin(time * 3) * 0.3;
       INITIAL_VG_WORLD_COLLECTIBLES.forEach((item) => {
         const cMesh = collectibleMeshes[item.id];
@@ -1064,13 +1229,13 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         }
       });
 
-      // Bob Abra boats on Creek water
+      // Bob Abra boats
       abra1.position.y = Math.sin(time * 2) * 0.08;
       abra1.rotation.z = Math.sin(time * 1.5) * 0.04;
       abra2.position.y = Math.sin(time * 2 + 1) * 0.08;
       abra2.rotation.z = Math.sin(time * 1.5 + 1) * 0.04;
 
-      // Proximity to remote players (<= 3.5m)
+      // Proximity to remote players
       let foundNearby: string | undefined = undefined;
       remotePlayersRef.current.forEach((rp) => {
         const dist = Math.hypot(playerGroup.position.x - rp.x, playerGroup.position.z - rp.z);
@@ -1080,12 +1245,22 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       });
       setNearbyPlayerName(foundNearby);
 
+      // Throttled coordinate updates for UI (every 100ms)
+      if (now - lastCoordsUpdate > 100) {
+        lastCoordsUpdate = now;
+        setPlayerCoords({
+          x: playerGroup.position.x,
+          y: playerGroup.position.y,
+          z: playerGroup.position.z
+        });
+      }
+
       renderer.render(scene, camera);
     };
 
     animate();
 
-    // 22. CLEANUP INVARIANT (THREE.JS VRAM MEMORY CLEANUP)
+    // 24. THREE.JS DISPOSAL INVARIANT (ZERO VRAM LEAKS)
     return () => {
       cancelAnimationFrame(animationFrameId);
 
@@ -1127,12 +1302,12 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       {/* 3D WebGL Canvas Container */}
       <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
 
-      {/* Floating Game HUD (Score, Pearls, Atmosphere, Jump & Lore Popup) */}
+      {/* Floating Game HUD */}
       <GameHUD
         score={score}
         pearlsCollected={pearlsCollected}
         totalPearls={totalPearls}
-        playersOnline={3}
+        playersOnline={4}
         nearbyPlayerName={nearbyPlayerName}
         onSendEmote={handleSendEmote}
         unlockedItem={unlockedItem}
@@ -1142,6 +1317,10 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
         speedBoostActive={speedBoostActive}
         onJump={handleJump}
         activeBadge={activeBadge}
+        onOpenPlaceSearch={() => setShowPlaceSearch(true)}
+        activeWaypoint={activeWaypoint}
+        waypointDistance={waypointDistance}
+        onClearWaypoint={() => setActiveWaypoint(null)}
       />
 
       {/* Player floating emote speech bubble */}
@@ -1155,6 +1334,16 @@ export const VGWorldGame: React.FC<VGWorldGameProps> = ({ onScoreUpdate }) => {
       <div className="absolute bottom-6 left-4 z-30 pointer-events-auto">
         <VirtualJoystick onMove={handleJoystickMove} maxRadius={56} />
       </div>
+
+      {/* Place Search, Navigation Radar & Teleport Modal */}
+      <PlaceSearchModal
+        isOpen={showPlaceSearch}
+        onClose={() => setShowPlaceSearch(false)}
+        playerCoords={playerCoords}
+        activeWaypoint={activeWaypoint}
+        onSelectWaypoint={(lm) => setActiveWaypoint(lm)}
+        onTeleportTo={handleTeleportTo}
+      />
 
     </div>
   );
