@@ -35,7 +35,7 @@ interface UserSuggestedMyth {
 }
 
 export const MythPointerView: React.FC<MythPointerViewProps> = ({
-  initialCity = 'Tokyo',
+  initialCity = '',
   onSelectCity
 }) => {
   const [selectedCity, setSelectedCity] = useState<string>(initialCity);
@@ -103,13 +103,17 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
 
   // Active myths list
   const activeMyths: TravelMyth[] = useMemo(() => {
-    if (customMyths[selectedCity]) {
+    if (selectedCity && customMyths[selectedCity]) {
       return customMyths[selectedCity];
     }
     if (resolvedCuratedKey && CURATED_MYTHS[resolvedCuratedKey]) {
       return CURATED_MYTHS[resolvedCuratedKey];
     }
-    return CURATED_MYTHS['Tokyo'] || [];
+    if (selectedCity && CURATED_MYTHS[selectedCity]) {
+      return CURATED_MYTHS[selectedCity];
+    }
+    // Default when no city is selected: combine all curated worldwide myths
+    return Object.values(CURATED_MYTHS).flat();
   }, [selectedCity, resolvedCuratedKey, customMyths]);
 
   const filteredMyths = useMemo(() => {
@@ -264,8 +268,19 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
             SELECT OR SWITCH DESTINATION:
           </label>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handleCityChange('')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-black flex items-center space-x-1.5 transition-all border-2 border-[#111827] min-h-[38px] ${
+                !selectedCity
+                  ? 'bg-[#1B3FFF] text-white shadow-[3px_3px_0px_#111827] -translate-y-0.5'
+                  : 'bg-[#FDFBF7] text-[#111827] hover:bg-gray-100'
+              }`}
+            >
+              <span>🌍</span>
+              <span>ALL WORLDWIDE</span>
+            </button>
             {POPULAR_DESTINATIONS.map((dest) => {
-              const isSelected = selectedCity.toLowerCase().includes(dest.name.toLowerCase());
+              const isSelected = selectedCity.toLowerCase() === dest.name.toLowerCase();
               return (
                 <button
                   key={dest.name}
@@ -325,7 +340,7 @@ export const MythPointerView: React.FC<MythPointerViewProps> = ({
               CURRENTLY VIEWING MYTHS FOR
             </span>
             <span className="text-lg font-display font-black text-[#111827] leading-tight">
-              {resolvedCuratedKey || selectedCity}
+              {resolvedCuratedKey || (selectedCity ? selectedCity : 'ALL WORLDWIDE DESTINATIONS')}
             </span>
           </div>
         </div>

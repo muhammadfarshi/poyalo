@@ -41,14 +41,14 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
   onOpenMyths,
   onOpenComic,
   onNavigateToPass,
-  activeCity = 'Tokyo'
+  activeCity = ''
 }) => {
   const [days, setDays] = useState<ItineraryDay[]>([]);
   const [activeDayIndex, setActiveDayIndex] = useState<number>(0);
   const [userPrompt, setUserPrompt] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [planToast, setPlanToast] = useState<string | null>(null);
-  const [currentCity, setCurrentCity] = useState<string>(activeCity || 'Tokyo');
+  const [currentCity, setCurrentCity] = useState<string>(activeCity || '');
   const [tripTheme, setTripTheme] = useState<string>('');
   const [countryName, setCountryName] = useState<string>('Worldwide');
   const [showPassportWidget, setShowPassportWidget] = useState<boolean>(false);
@@ -411,7 +411,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
 
       {/* 180-Day Passport Expiry Home Screen Widget */}
       <PassportExpiryWidget
-        initialDestination={countryName.toLowerCase().includes('japan') ? 'JP' : countryName.slice(0, 2).toUpperCase()}
+        initialDestination={countryName && countryName !== 'Worldwide' ? (countryName.toLowerCase().includes('japan') ? 'JP' : countryName.slice(0, 2).toUpperCase()) : 'AE'}
         onSavedToPass={onNavigateToPass}
       />
 
@@ -605,7 +605,7 @@ export const ItineraryPlanner: React.FC<ItineraryPlannerProps> = ({
           {showPassportWidget && (
             <div className="animate-in fade-in duration-300">
               <PassportExpiryWidget 
-                initialDestination={countryName.toLowerCase().includes('japan') ? 'JP' : countryName.slice(0, 2).toUpperCase()} 
+                initialDestination={countryName && countryName !== 'Worldwide' ? (countryName.toLowerCase().includes('japan') ? 'JP' : countryName.slice(0, 2).toUpperCase()) : 'AE'} 
                 onSavedToPass={onNavigateToPass}
               />
             </div>

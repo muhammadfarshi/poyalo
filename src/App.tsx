@@ -15,7 +15,7 @@ export const App: React.FC = () => {
   const [gameScore, setGameScore] = useState<number>(0);
   const [pearlsCollected, setPearlsCollected] = useState<number>(0);
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
-  const [currentCity, setCurrentCity] = useState<string>('Tokyo');
+  const [currentCity, setCurrentCity] = useState<string>('');
 
   // PWA install prompt & first-time onboarding modal
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any | null>(null);

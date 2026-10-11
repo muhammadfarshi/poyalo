@@ -43,7 +43,7 @@ export const DEST_AIRPORT_MAP: Record<string, { code: string; name: string }> = 
 
 export const PassportExpiryWidget: React.FC<PassportExpiryWidgetProps> = ({
   initialNationality = 'IN',
-  initialDestination = 'JP',
+  initialDestination = 'AE',
   compact = false,
   onSavedToPass
 }) => {
@@ -148,15 +148,15 @@ export const PassportExpiryWidget: React.FC<PassportExpiryWidgetProps> = ({
       // 1. Read existing boarding pass or fallback
       const defaultPass = {
         passengerName: 'ALEX CHEN',
-        originCode: 'HND',
-        originName: 'TOKYO HANEDA',
-        destCode: 'TYO',
-        destName: 'TOKYO METROPOLITAN',
-        trailName: 'EXPLORER TRAIL',
+        originCode: 'DXB',
+        originName: 'INTERNATIONAL DEPARTURE',
+        destCode: 'WORLD',
+        destName: 'GLOBAL DESTINATION',
+        trailName: 'GLOBAL HERITAGE EXPEDITION',
         seat: '09F',
         passClass: 'EXPLORER CLASS',
         date: '16 OCT 2026',
-        bookingRef: 'POY-2026',
+        bookingRef: 'POY-884920',
         verificationStatus: 'PASSPORT 180-DAY VALID'
       };
 

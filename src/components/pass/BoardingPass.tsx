@@ -52,15 +52,15 @@ interface PassData {
 
 const DEFAULT_PASS_DATA: PassData = {
   passengerName: 'ALEX CHEN',
-  originCode: 'HND',
-  originName: 'TOKYO HANEDA',
-  destCode: 'SHIBUYA',
-  destName: 'MEIJI & SHIBUYA',
-  trailName: 'NEON HERITAGE TRAIL',
+  originCode: 'DXB',
+  originName: 'INTERNATIONAL DEPARTURE',
+  destCode: 'WORLD',
+  destName: 'GLOBAL DESTINATION',
+  trailName: 'WORLDWIDE EXPLORER TRAIL',
   seat: '09F',
   passClass: 'EXPLORER CLASS',
   date: '16 OCT 2026',
-  bookingRef: 'POY-2026-TYO',
+  bookingRef: 'POY-2026-EXP',
   verificationStatus: 'PASSPORT 180-DAY VALID'
 };
 
